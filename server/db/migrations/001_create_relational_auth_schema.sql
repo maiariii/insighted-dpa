@@ -16,14 +16,14 @@ END $$;
 
 -- 2. Regions
 CREATE TABLE IF NOT EXISTS regions (
-    id VARCHAR(10) PRIMARY KEY,
+    id VARCHAR(20) PRIMARY KEY,
     name VARCHAR(150) UNIQUE NOT NULL
 );
 
 -- 3. Division Offices
 CREATE TABLE IF NOT EXISTS division_offices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    region_id VARCHAR(10) REFERENCES regions(id) ON DELETE CASCADE,
+    region_id VARCHAR(20) REFERENCES regions(id) ON DELETE CASCADE,
     office_name VARCHAR(150) NOT NULL,
     CONSTRAINT uq_region_office UNIQUE (region_id, office_name)
 );
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS division_offices (
 -- 4. Central Authentication & Profile Directory (Registration & Login)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    region_id VARCHAR(10) NOT NULL REFERENCES regions(id),
+    region_id VARCHAR(20) NOT NULL REFERENCES regions(id),
     division_id UUID NOT NULL REFERENCES division_offices(id),
     position VARCHAR(150) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS host_hrmos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID UNIQUE NOT NULL,
-    region_id VARCHAR(10) NOT NULL,
+    region_id VARCHAR(20) NOT NULL,
     division_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS collaborators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID UNIQUE NOT NULL,
     host_hrmo_id UUID NOT NULL,
-    region_id VARCHAR(10) NOT NULL,
+    region_id VARCHAR(20) NOT NULL,
     division_id UUID NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
@@ -83,7 +83,9 @@ CREATE TABLE IF NOT EXISTS collaborators (
 -- 7. Personnel Audits
 CREATE TABLE IF NOT EXISTS personnel_audits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    region_id VARCHAR(10) NOT NULL REFERENCES regions(id),
+    dpa_month INT NOT NULL DEFAULT 8,
+    dpa_year INT NOT NULL DEFAULT 2026,
+    region_id VARCHAR(20) NOT NULL REFERENCES regions(id),
     division_id UUID NOT NULL REFERENCES division_offices(id),
     position_category personnel_category NOT NULL,
     item_status VARCHAR(50) NOT NULL,

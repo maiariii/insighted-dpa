@@ -718,20 +718,75 @@ padding-top: 6px;
       justify-self: end;
     }
 
-    /* Ensure the table container, individual rows, and cells have a completely solid white background */
-    .audit-table-container,
-    table.audit-table,
-    table.audit-table tr,
-    table.audit-table td,
-    table.audit-table th,
-    .table-wrap,
-    table,
-    table tr,
-    table td,
-    table th {
-      background-color: #ffffff !important;
-      background: #ffffff !important;
+    /* Light mode table background styling */
+    body:not(.dark) .audit-table-container,
+    body:not(.dark) table.audit-table,
+    body:not(.dark) table.audit-table tr,
+    body:not(.dark) table.audit-table td,
+    body:not(.dark) table.audit-table th,
+    body:not(.dark) .table-wrap,
+    body:not(.dark) table,
+    body:not(.dark) table tr,
+    body:not(.dark) table td,
+    body:not(.dark) table th {
+      background-color: #ffffff;
+      background: #ffffff;
+      opacity: 1;
+    }
+
+    /* Dark mode table background & text styling */
+    body.dark .audit-table-container,
+    body.dark table.audit-table,
+    body.dark table.audit-table tr,
+    body.dark table.audit-table td,
+    body.dark table.audit-table th,
+    body.dark .table-wrap,
+    body.dark table,
+    body.dark table tr,
+    body.dark table td,
+    body.dark table th {
+      background-color: #0f172a !important;
+      background: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
       opacity: 1 !important;
+    }
+
+    body.dark th {
+      background-color: #1e293b !important;
+      background: #1e293b !important;
+      color: #94a3b8 !important;
+    }
+
+    body.dark th input,
+    body.dark th select,
+    body.dark td input,
+    body.dark td select {
+      background-color: #1e293b !important;
+      background: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark .table-readonly-cell {
+      background-color: #0f172a !important;
+      background: #0f172a !important;
+      color: #94a3b8 !important;
+    }
+
+    body.dark .form-input[readonly],
+    body.dark textarea[readonly],
+    body.dark input[readonly],
+    body.dark .form-input-readonly {
+      background-color: #1e293b !important;
+      background: #1e293b !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark tbody tr:hover td {
+      background-color: #1e3a8a !important;
+      background: #1e3a8a !important;
     }
 
     /* Dynamic Vacancy Aging Status Badges styling */
