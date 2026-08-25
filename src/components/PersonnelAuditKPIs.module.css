@@ -1,0 +1,146 @@
+/* PersonnelAuditKPIs.module.css */
+
+.kpiGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  border-radius: 16px;
+  padding: 20px;
+  background: rgba(248, 250, 252, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  box-shadow: 0 14px 32px -10px rgba(15, 23, 42, 0.22), 0 2px 8px rgba(15, 23, 42, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+:global(body.dark) .card {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(226, 232, 240, 0.24);
+  box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.48), 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.kpi {
+  position: relative;
+  overflow: hidden;
+  padding-top: 6px;
+}
+
+.kpi::after {
+  content: "";
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  right: -28px;
+  top: -28px;
+  border-radius: 50%;
+  background: rgba(39, 131, 222, 0.11);
+  pointer-events: none;
+}
+
+.kpi label {
+  display: block;
+  color: var(--muted, #64748b);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.kpi strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+  color: var(--ink, #0f172a);
+}
+
+:global(body.dark) .kpi strong {
+  color: var(--ink-dark, #f8fafc);
+}
+
+.kpi span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Error Banner Styling */
+.errorBanner {
+  grid-column: 1 / -1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+/* Loading Skeleton Shimmer Effects */
+.skeletonBox {
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.4) 25%,
+    rgba(203, 213, 225, 0.6) 37%,
+    rgba(226, 232, 240, 0.4) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 4px;
+}
+
+:global(body.dark) .skeletonBox {
+  background: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.4) 25%,
+    rgba(51, 65, 85, 0.6) 37%,
+    rgba(30, 41, 59, 0.4) 63%
+  );
+  background-size: 400% 100%;
+}
+
+.skeletonLabel {
+  width: 60%;
+  height: 14px;
+}
+
+.skeletonValue {
+  width: 40%;
+  height: 34px;
+  margin-top: 8px;
+}
+
+.skeletonSubtext {
+  width: 80%;
+  height: 13px;
+  margin-top: 8px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}

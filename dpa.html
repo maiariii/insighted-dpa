@@ -1,0 +1,2783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DepEd Personnel Audit</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap");
+
+    :root {
+      --blue: #0f5fb7;
+      --blue-2: #2783de;
+      --yellow: #f7c948;
+      --red: #d62828;
+      --green: #1f9d55;
+      --orange: #d97706;
+      --ink: #172033;
+      --muted: #667085;
+      --surface: rgba(255, 255, 255, 0.75);
+      --surface-strong: rgba(255, 255, 255, 0.75);
+      --border: rgba(255, 255, 255, 0.48);
+      --line: rgba(23, 32, 51, 0.1);
+      --shadow: 0 24px 80px rgba(15, 95, 183, 0.16);
+      --radius: 22px;
+      color-scheme: light;
+      font-family: "Plus Jakarta Sans", "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body.dark {
+      --ink: #f8fafc;
+      --muted: rgba(255, 255, 255, 0.68);
+      --surface: rgba(15, 23, 42, 0.75);
+      --surface-strong: rgba(15, 23, 42, 0.75);
+      --border: rgba(255, 255, 255, 0.14);
+      --line: rgba(255, 255, 255, 0.12);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 4% 6%, rgba(147, 197, 253, 0.72), transparent 34%),
+        radial-gradient(circle at 18% 18%, rgba(219, 234, 254, 0.78), transparent 32%),
+        radial-gradient(circle at 8% 10%, rgba(255, 255, 255, 0.74), transparent 31%),
+        radial-gradient(circle at 76% 16%, rgba(247, 201, 72, 0.62), transparent 28%),
+        radial-gradient(circle at 92% 78%, rgba(214, 40, 40, 0.3), transparent 24%),
+        radial-gradient(circle at 24% 86%, rgba(147, 197, 253, 0.56), transparent 33%),
+        linear-gradient(135deg, #dbeafe 0%, #eff6ff 30%, #bfdbfe 62%, #93c5fd 100%);
+      background-attachment: fixed;
+    }
+
+    body.dark {
+      background:
+        radial-gradient(circle at 8% 8%, rgba(247, 201, 72, 0.22), transparent 28%),
+        radial-gradient(circle at 88% 12%, rgba(214, 40, 40, 0.18), transparent 26%),
+        radial-gradient(circle at 72% 86%, rgba(39, 131, 222, 0.24), transparent 30%),
+        linear-gradient(135deg, #111827 0%, #172033 48%, #2a1518 100%);
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      min-height: 100vh;
+      padding: 20px;
+      gap: 20px;
+      transition: grid-template-columns 0.25s ease;
+    }
+
+    .app-shell.sidebar-open { grid-template-columns: 280px 1fr; }
+
+    .glass {
+      background: rgba(248, 250, 252, 0.35);
+      border: 1px solid rgba(226, 232, 240, 0.6);
+      box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.02);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .sidebar {
+      background: rgba(248, 250, 252, 0.35);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(226, 232, 240, 0.6);
+      box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.02);
+      border-radius: 20px;
+      padding: 14px;
+      position: sticky;
+      top: 20px;
+      height: 74px;
+      width: 74px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow: hidden;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, background 0.3s ease;
+      z-index: 1000;
+    }
+
+    body.dark .sidebar {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(226, 232, 240, 0.18);
+    }
+
+    .sidebar:hover,
+    .sidebar.pinned {
+      width: 280px;
+      height: calc(100vh - 40px);
+      box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.22);
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-width: 240px;
+    }
+
+    .seal {
+      width: 46px;
+      height: 46px;
+      flex: 0 0 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--blue), var(--yellow));
+      color: white;
+      font-weight: 900;
+      box-shadow: 0 10px 24px rgba(15, 95, 183, 0.25);
+    }
+
+    .brand h1 { margin: 0; font-size: 16px; line-height: 1.15; }
+    .brand p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+
+    .collapsible-text {
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(-10px);
+      transition: opacity 0.2s ease, transform 0.25s ease, visibility 0.2s;
+      white-space: nowrap;
+    }
+
+    .sidebar:hover .collapsible-text,
+    .sidebar.pinned .collapsible-text {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(0);
+    }
+
+    .profile-card, .sidebar-footer {
+      padding: 0;
+      border-radius: 16px;
+      background: rgba(248, 250, 252, 0.35);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: none;
+      box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.02);
+      min-width: 0;
+      max-width: 100%;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+      opacity: 0;
+      visibility: hidden;
+      max-height: 0;
+      margin-top: 0;
+      margin-bottom: 0;
+      overflow: hidden;
+      transition: opacity 0.2s ease, max-height 0.28s ease, padding 0.28s ease, margin 0.28s ease, visibility 0.2s;
+    }
+
+    .sidebar:hover .profile-card,
+    .sidebar:hover .sidebar-footer,
+    .sidebar.pinned .profile-card,
+    .sidebar.pinned .sidebar-footer {
+      opacity: 1;
+      visibility: visible;
+      max-height: 300px;
+      padding: 14px;
+      border: 1px solid rgba(226, 232, 240, 0.6);
+    }
+
+    body.dark .sidebar:hover .profile-card,
+    body.dark .sidebar:hover .sidebar-footer,
+    body.dark .sidebar.pinned .profile-card,
+    body.dark .sidebar.pinned .sidebar-footer {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(226, 232, 240, 0.18);
+    }
+
+    .profile-card strong { display: block; font-size: 14px; }
+    .profile-card span, .sidebar-footer { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+    .sidebar-divider {
+      height: 1px;
+      background-color: var(--line);
+      border: 0;
+      margin: 2px 0;
+      width: 100%;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .sidebar:hover .sidebar-divider,
+    .sidebar.pinned .sidebar-divider {
+      opacity: 1;
+    }
+
+    .nav { display: grid; gap: 8px; }
+
+    .nav button {
+      min-height: 46px;
+      border: 0;
+      border-radius: 14px;
+      padding: 0 14px;
+      text-align: left;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+    }
+
+    .nav button .icon { width: 24px; text-align: center; flex: 0 0 24px; }
+
+    .nav button.active,
+    .nav button:hover {
+      background: rgba(15, 95, 183, 0.1);
+      color: var(--blue);
+      font-weight: 800;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .portal-header {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 0;
+    }
+
+    .topbar {
+      background: rgba(248, 250, 252, 0.35);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(15, 23, 42, 0.18);
+      border-radius: 16px;
+      padding: 18px 24px;
+      box-shadow: 0 14px 32px -10px rgba(15, 23, 42, 0.22), 0 2px 8px rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    body.dark .topbar {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(226, 232, 240, 0.24);
+      box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.48), 0 2px 8px rgba(0, 0, 0, 0.28);
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow-primary {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      color: #1D4ED8;
+      text-transform: uppercase;
+    }
+
+    .eyebrow-divider {
+      color: #CBD5E1;
+      font-size: 11px;
+    }
+
+    .eyebrow-secondary {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: #D97706;
+      text-transform: uppercase;
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 30px;
+      font-weight: 800;
+      color: #0F172A;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+
+    body.dark .topbar h2 { color: #F8FAFC; }
+
+    .topbar p {
+      margin: 4px 0 0;
+      max-width: 850px;
+      color: #475569;
+      font-size: 13.5px;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    body.dark .topbar p { color: rgba(248, 250, 252, 0.72); }
+
+    .header-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 0;
+    }
+
+    .back-btn {
+      border: none;
+      border-radius: 12px;
+      padding: 9px 20px;
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .back-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+
+    .btn {
+      min-height: 44px;
+      border: 0;
+      border-radius: 14px;
+      padding: 0 16px;
+      cursor: pointer;
+      font-weight: 800;
+      color: white;
+      background: var(--blue);
+      box-shadow: 0 10px 20px rgba(15, 95, 183, 0.18);
+    }
+
+    .btn.secondary {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.5);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    body.dark .btn.secondary { background: rgba(15, 23, 42, 0.52); }
+
+    .grid { display: grid; gap: 16px; }
+    .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .content-grid { grid-template-columns: 1.1fr 0.9fr; }
+    .settings-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#home .kpi-grid {
+margin-bottom: 24px;
+}
+
+    .card {
+      border-radius: 16px;
+      padding: 20px;
+      background: rgba(248, 250, 252, 0.35);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(15, 23, 42, 0.18);
+      box-shadow: 0 14px 32px -10px rgba(15, 23, 42, 0.22), 0 2px 8px rgba(15, 23, 42, 0.08);
+    }
+
+    body.dark .card {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(226, 232, 240, 0.24);
+      box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.48), 0 2px 8px rgba(0, 0, 0, 0.28);
+    }
+
+.kpi {
+position: relative;
+overflow: hidden;
+padding-top: 6px;
+}
+#audit .card { padding-top: 12px; }
+    .kpi::after {
+      content: "";
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      right: -28px;
+      top: -28px;
+      border-radius: 50%;
+      background: rgba(39, 131, 222, 0.11);
+    }
+
+    .kpi label { color: var(--muted); font-size: 13px; font-weight: 800; }
+    .kpi strong { display: block; margin-top: 8px; font-size: 32px; letter-spacing: -0.05em; }
+    .kpi span { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .section-title h3 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }
+    .section-title p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+    .chart { height: 250px; display: flex; align-items: end; gap: 14px; padding-top: 20px; }
+
+    .bar {
+      flex: 1;
+      border-radius: 14px 14px 8px 8px;
+      background: linear-gradient(180deg, var(--blue-2), var(--blue));
+      min-height: 34px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+    }
+
+    .bar.yellow { background: linear-gradient(180deg, var(--yellow), #d99b06); }
+    .bar.red { background: linear-gradient(180deg, #ff7a70, var(--red)); }
+    .bar.green { background: linear-gradient(180deg, #61d394, var(--green)); }
+
+    .bar span {
+      position: absolute;
+      bottom: -34px;
+      width: 100%;
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .split-list { display: grid; gap: 12px; }
+
+    .reason-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.42);
+      border: 1px solid var(--line);
+    }
+
+    body.dark .reason-row { background: rgba(15, 23, 42, 0.38); }
+
+    .reason-row small { color: var(--muted); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(15, 95, 183, 0.1);
+      color: var(--blue);
+      white-space: nowrap;
+    }
+
+    .pill.red { background: rgba(214, 40, 40, 0.1); color: var(--red); }
+    .pill.orange { background: rgba(217, 119, 6, 0.12); color: var(--orange); }
+    .pill.green { background: rgba(31, 157, 85, 0.12); color: var(--green); }
+
+    .audit-panel { display: none; }
+    .audit-panel.active { display: block; }
+
+    .audit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .audit-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 1 480px;
+      min-width: 280px;
+    }
+
+    .audit-header-actions .search {
+      flex: 1;
+    }
+
+    .personnel-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    /* Style button-based cards to look like actual static KPI cards */
+    button.personnel-tab.kpi {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background-color: #ffffff;
+      padding: 16px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    button.personnel-tab.kpi label {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 4px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    button.personnel-tab.kpi strong {
+      font-size: 1.75rem;
+      color: #0f172a;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 8px;
+      z-index: 1;
+    }
+
+    .kpi-progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      margin-top: 4px;
+      z-index: 1;
+    }
+
+    .kpi-progress-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    button.personnel-tab.kpi span.completion-sticker {
+      font-size: 0.775rem;
+      font-weight: 700;
+      color: #64748b;
+      margin: 0;
+      transition: color 0.2s ease;
+    }
+
+    .kpi-progress-track {
+      width: 100%;
+      height: 6px;
+      background-color: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .kpi-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Add background ornament effect consistent with other KPIs */
+    button.personnel-tab.kpi::after {
+      content: "";
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      right: -28px;
+      top: -28px;
+      border-radius: 50%;
+      background: rgba(39, 131, 222, 0.08);
+      transition: background-color 0.2s ease;
+      pointer-events: none;
+    }
+
+    /* Interactive and Active states */
+    button.personnel-tab.kpi:hover {
+      border-color: #cbd5e1;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    button.personnel-tab.kpi.active {
+      border-color: #2563eb;
+      background-color: #f8fafc;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15), 0 4px 12px rgba(37, 99, 235, 0.05);
+    }
+
+    button.personnel-tab.kpi.active span.completion-sticker {
+      color: #1d4ed8;
+      font-weight: 800;
+    }
+
+    button.personnel-tab.kpi.active .kpi-progress-track {
+      background-color: #dbeafe;
+    }
+
+    button.personnel-tab.kpi.active .kpi-progress-fill {
+      background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+    }
+
+    button.personnel-tab.kpi.active::after {
+      background: rgba(37, 99, 235, 0.15); /* More vibrant visual accent for selected card */
+    }
+
+    body.dark button.personnel-tab.kpi {
+      background-color: #0f172a;
+      border-color: rgba(226, 232, 240, 0.18);
+    }
+
+    body.dark button.personnel-tab.kpi label {
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    body.dark button.personnel-tab.kpi strong {
+      color: #f8fafc;
+    }
+
+    body.dark button.personnel-tab.kpi span.completion-sticker {
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    body.dark .kpi-progress-track {
+      background-color: rgba(255, 255, 255, 0.12);
+    }
+
+    body.dark button.personnel-tab.kpi:hover {
+      border-color: rgba(226, 232, 240, 0.32);
+    }
+
+    body.dark button.personnel-tab.kpi.active {
+      background-color: #1e293b;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    body.dark button.personnel-tab.kpi.active span.completion-sticker {
+      color: #60a5fa;
+    }
+
+    body.dark button.personnel-tab.kpi.active .kpi-progress-track {
+      background-color: rgba(59, 130, 246, 0.2);
+    }
+
+    body.dark button.personnel-tab.kpi.active .kpi-progress-fill {
+      background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr)) auto;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .field {
+      min-height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.58);
+      padding: 0 12px;
+      color: var(--ink);
+      min-width: 0;
+    }
+
+    body.dark .field { background: rgba(15, 23, 42, 0.52); }
+
+    .search {
+      width: 100%;
+      justify-self: end;
+    }
+
+    /* Ensure the table container, individual rows, and cells have a completely solid white background */
+    .audit-table-container,
+    table.audit-table,
+    table.audit-table tr,
+    table.audit-table td,
+    table.audit-table th,
+    .table-wrap,
+    table,
+    table tr,
+    table td,
+    table th {
+      background-color: #ffffff !important;
+      background: #ffffff !important;
+      opacity: 1 !important;
+    }
+
+    /* Dynamic Vacancy Aging Status Badges styling */
+    .badge-vacancy-status {
+      display: inline-block;
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: baseline;
+      border-radius: 4px;
+      border-width: 1px;
+      border-style: solid;
+    }
+
+    /* Red Badge - Long-Term Unfilled */
+    .badge-vacancy-long-term {
+      background-color: #fee2e2 !important;
+      color: #991b1b !important;
+      border-color: #fca5a5 !important;
+    }
+
+    /* Orange Badge - Extended Vacancy */
+    .badge-vacancy-extended {
+      background-color: #ffedd5 !important;
+      color: #c2410c !important;
+      border-color: #fdbb2d !important;
+    }
+
+    /* Black/Grey Badge - Aging Vacancy */
+    .badge-vacancy-aging {
+      background-color: #f1f5f9 !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+
+    /* Green Badge - New Vacancy */
+    .badge-vacancy-new {
+      background-color: #dcfce7 !important;
+      color: #166534 !important;
+      border-color: #86efac !important;
+    }
+
+    /* Blue Badge - Newly Created Item */
+    .badge-vacancy-newly-created {
+      background-color: #dbeafe !important;
+      color: #1e40af !important;
+      border-color: #93c5fd !important;
+    }
+
+    /* Disabled form input & select styling */
+    .form-input-disabled {
+      background-color: #f1f5f9 !important;
+      color: #94a3b8 !important;
+      cursor: not-allowed !important;
+      opacity: 0.65 !important;
+      pointer-events: none !important;
+    }
+
+    /* Specific overrides for read-only fields to ensure excellent legibility */
+    .form-input[readonly],
+    textarea[readonly],
+    input[readonly],
+    .form-input-readonly {
+      background-color: #f8fafc !important; /* solid, clean slate-50 background indicating uneditable state */
+      color: #0f172a !important; /* solid, high-contrast slate-900 text color */
+      border-color: #cbd5e1 !important; /* solid slate-300 border */
+      cursor: default !important; /* standard cursor instead of I-beam or text-selection cursors */
+      opacity: 1 !important; /* prevent any transparency wash-out */
+    }
+
+    /* Styling for Read-Only cells in the dynamic table to signify non-editable fields */
+    .table-readonly-cell {
+      background-color: #f3f4f6 !important;
+      background: #f3f4f6 !important;
+      color: #374151 !important;
+      font-weight: 500;
+    }
+
+    /* Modal Divider & Headers */
+    .modal-section-header {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+      display: block;
+      border-left: 3px solid #3b82f6;
+      padding-left: 6px;
+      grid-column: 1 / -1;
+    }
+
+    .modal-section-divider {
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+      margin: 1.25rem 0;
+      width: 100%;
+      grid-column: 1 / -1;
+    }
+
+    /* Dynamic KPI Progress Bar Fills */
+    .progress-fill-blue {
+      background-color: #3b82f6 !important;
+      background: #3b82f6 !important;
+      transition: width 0.4s ease, background-color 0.3s ease;
+    }
+
+    .progress-fill-green {
+      background-color: #10b981 !important;
+      background: #10b981 !important;
+      transition: width 0.4s ease, background-color 0.3s ease;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+    }
+
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 62vh;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #ffffff;
+      position: relative;
+    }
+
+    body.dark .table-wrap { background: #0f172a; }
+
+    table {
+      width: max-content;
+      min-width: 2220px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    th, td {
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+      font-size: 12.5px;
+      background: #ffffff;
+    }
+
+    body.dark th,
+    body.dark td { background: #0f172a; }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: #e8f3ff;
+      min-width: 130px;
+    }
+
+    body.dark th { background: #122646; }
+
+    th .th-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    th button {
+      border: 0;
+      background: rgba(15, 95, 183, 0.1);
+      color: var(--blue);
+      border-radius: 8px;
+      cursor: pointer;
+      min-width: 28px;
+      min-height: 28px;
+      font-weight: 900;
+    }
+
+    th input, th select {
+      width: 100%;
+      min-height: 32px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      padding: 0 8px;
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--ink);
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 11px;
+    }
+
+    td select, td input {
+      width: 100%;
+      min-height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      padding: 0 10px;
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--ink);
+    }
+
+    body.dark td select,
+    body.dark td input,
+    body.dark th input,
+    body.dark th select { background: rgba(2, 6, 23, 0.72); }
+
+    tbody tr { cursor: pointer; }
+    tbody tr:hover td { background: #e5f2fc; }
+    body.dark tbody tr:hover td { background: #1e4069; }
+
+    .sticky-1 {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      min-width: 230px;
+      max-width: 230px;
+    }
+
+    .sticky-2 {
+      position: sticky;
+      left: 230px;
+      z-index: 3;
+      min-width: 220px;
+      max-width: 220px;
+    }
+
+    th.sticky-1,
+    th.sticky-2 {
+      z-index: 6;
+    }
+
+    .status-col {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      min-width: 120px;
+      max-width: 120px;
+      text-align: center;
+    }
+
+    th.status-col { z-index: 7; }
+    .status-col + .sticky-1 { left: 120px; }
+    .status-col + .sticky-1 + .sticky-2 { left: 350px; }
+
+    .row-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0 10px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .row-status.complete {
+      background: rgba(31, 157, 85, 0.12);
+      color: var(--green);
+    }
+
+    .row-status.incomplete {
+      background: rgba(217, 119, 6, 0.12);
+      color: var(--orange);
+    }
+
+    .numeric,
+    .numeric input {
+      text-align: center;
+    }
+
+    .form-stack { display: grid; gap: 12px; }
+    .form-stack label { display: grid; gap: 6px; font-size: 13px; font-weight: 800; }
+    .form-stack span { color: var(--muted); font-size: 12px; font-weight: 500; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(23, 32, 51, 0.46);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      width: min(1100px, 96vw);
+      max-height: 88vh;
+      overflow: auto;
+      border-radius: 24px;
+      padding: 22px;
+      background: rgba(255, 255, 255, 0.95);
+      color: #172033;
+      box-shadow: 0 36px 120px rgba(23, 32, 51, 0.3);
+    }
+
+    .modal h3 { margin: 0; }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .modal-grid label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #172033;
+    }
+
+    .modal-grid input,
+    .modal-grid select,
+    .modal-grid textarea {
+      min-height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(23, 32, 51, 0.14);
+      padding: 0 12px;
+      background: white;
+      color: #172033;
+    }
+
+    .modal-grid textarea {
+      min-height: 88px;
+      padding-top: 10px;
+      resize: vertical;
+    }
+
+    .span-2 { grid-column: span 2; }
+    .span-3 { grid-column: span 3; }
+
+    footer {
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+      padding: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .app-shell, .app-shell.sidebar-open { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .collapsible-text { opacity: 1; transform: none; }
+      .nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .kpi-grid, .content-grid, .settings-grid, .audit-header { grid-template-columns: 1fr 1fr; }
+      .toolbar { grid-template-columns: 1fr 1fr; }
+      .modal-grid { grid-template-columns: 1fr 1fr; }
+      .span-3 { grid-column: span 2; }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell { padding: 12px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .nav, .kpi-grid, .content-grid, .settings-grid, .audit-header, .toolbar, .modal-grid { grid-template-columns: 1fr; }
+      .chart { height: 200px; }
+      .span-2, .span-3 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar glass" id="sidebar">
+      <div class="brand">
+        <div class="seal">DPA</div>
+        <div class="collapsible-text" style="word-break: break-word; min-width: 0; max-width: 100%;">
+          <h1>DepEd Personnel Audit</h1>
+          <p>Division vacancy monitoring</p>
+        </div>
+      </div>
+
+      <hr class="sidebar-divider" />
+
+      <div class="profile-card collapsible-text">
+        <strong>Maria Santos</strong>
+        <span>Human Resource Management Officer</span>
+        <span>National Capital Region • Regional Office - Proper</span>
+      </div>
+
+      <nav class="nav" aria-label="Primary navigation">
+        <button class="active" data-tab="home"><span class="icon">📊</span><span class="collapsible-text">Home</span></button>
+        <button data-tab="audit"><span class="icon">🧾</span><span class="collapsible-text">Personnel Audit</span></button>
+        <button data-tab="settings"><span class="icon">⚙️</span><span class="collapsible-text">Settings</span></button>
+      </nav>
+
+      <button class="btn secondary sidebar-dark-btn" id="darkModeBtn" style="min-height: 42px; margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800;">
+        <span>🌙</span><span class="collapsible-text">Toggle Dark Mode</span>
+      </button>
+
+      <div class="sidebar-footer collapsible-text">
+        Access is scoped to the HRMO’s assigned region and division. Collaborators inherit the same region and division from the assigning HRMO.
+      </div>
+    </aside>
+
+    <main>
+      <header class="portal-header">
+        <div class="topbar">
+          <div class="eyebrow">
+            <span class="eyebrow-primary">Department of Education</span>
+            <span class="eyebrow-divider">|</span>
+            <span class="eyebrow-secondary">BHROD & Infrastructure</span>
+          </div>
+          <h2 id="page-title">DepEd Personnel Audit</h2>
+          <p id="page-subtitle">Live summary of unfilled plantilla items and vacancy reasons.</p>
+        </div>
+      </header>
+
+      <section id="home" class="audit-panel active">
+        <div class="grid kpi-grid">
+          <article class="card kpi">
+            <label>Total unfilled items</label>
+<strong>12</strong>
+            <span>Filtered to NCR • Regional Office - Proper</span>
+          </article>
+          <article class="card kpi">
+            <label>Completed audit rows</label>
+<strong>7</strong>
+<span>58% accomplishment rate</span>
+          </article>
+          <article class="card kpi">
+            <label>Long-term unfilled</label>
+            <strong>3</strong>
+            <span>Requires priority review</span>
+          </article>
+          <article class="card kpi">
+            <label>New vacancies</label>
+<strong>3</strong>
+            <span>Recently tagged for action</span>
+          </article>
+        </div>
+
+        <div class="grid content-grid">
+          <article class="card">
+            <div class="section-title">
+              <div>
+                <h3>Vacancy aging distribution</h3>
+                <p>Based on uploaded item data and HRMO audit responses.</p>
+              </div>
+              <span class="pill">Live</span>
+            </div>
+            <div style="position: relative; height: 260px; width: 100%;">
+              <canvas id="agingChart"></canvas>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="section-title">
+              <div>
+                <h3>Reasons unfilled</h3>
+                <p>Dashboard disaggregation from HRMO-selected status fields.</p>
+              </div>
+            </div>
+            <div class="split-list">
+              <div class="reason-row"><div><strong>No qualified applicants</strong><br><small>3 items affected</small></div><span class="pill red">33%</span></div>
+              <div class="reason-row"><div><strong>Awaiting appointment documents</strong><br><small>2 items affected</small></div><span class="pill orange">22%</span></div>
+              <div class="reason-row"><div><strong>For publication</strong><br><small>2 items affected</small></div><span class="pill">22%</span></div>
+              <div class="reason-row"><div><strong>Pending validation</strong><br><small>2 items affected</small></div><span class="pill green">22%</span></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="audit" class="audit-panel">
+        <article class="card">
+          <div class="audit-header">
+            <div>
+              <h3>Personnel Audit Main Panel</h3>
+              <p>Exact schema columns from the brief. Item Number and Position Title stay frozen during horizontal scroll.</p>
+            </div>
+            <div class="audit-header-actions">
+              <input id="globalSearch" class="field search" placeholder="Search table..." />
+              <button class="btn" style="white-space: nowrap;">Export summary</button>
+            </div>
+          </div>
+
+          <div class="personnel-kpi-grid" aria-label="Personnel category tabs">
+            <!-- Teaching Card -->
+            <button class="personnel-tab card kpi active" data-category="Teaching">
+              <label>Teaching Personnel</label>
+              <strong data-category-count="Teaching">0</strong>
+              <div class="kpi-progress-wrap">
+                <div class="kpi-progress-info">
+                  <span class="completion-sticker" data-category-sticker="Teaching">0% completion rate</span>
+                </div>
+                <div class="kpi-progress-track">
+                  <div class="kpi-progress-fill progress-fill-blue" data-category-progress="Teaching" style="width: 0%;"></div>
+                </div>
+              </div>
+            </button>
+
+            <!-- Non-Teaching Card -->
+            <button class="personnel-tab card kpi" data-category="Non-Teaching">
+              <label>Non-Teaching Personnel</label>
+              <strong data-category-count="Non-Teaching">0</strong>
+              <div class="kpi-progress-wrap">
+                <div class="kpi-progress-info">
+                  <span class="completion-sticker" data-category-sticker="Non-Teaching">0% completion rate</span>
+                </div>
+                <div class="kpi-progress-track">
+                  <div class="kpi-progress-fill progress-fill-blue" data-category-progress="Non-Teaching" style="width: 0%;"></div>
+                </div>
+              </div>
+            </button>
+
+            <!-- Teaching-Related Card -->
+            <button class="personnel-tab card kpi" data-category="Teaching-Related">
+              <label>Teaching-Related Personnel</label>
+              <strong data-category-count="Teaching-Related">0</strong>
+              <div class="kpi-progress-wrap">
+                <div class="kpi-progress-info">
+                  <span class="completion-sticker" data-category-sticker="Teaching-Related">0% completion rate</span>
+                </div>
+                <div class="kpi-progress-track">
+                  <div class="kpi-progress-fill progress-fill-blue" data-category-progress="Teaching-Related" style="width: 0%;"></div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div class="toolbar">
+            <select class="field column-filter" data-key="VACANCY AGING STATUS"><option value="">All vacancy aging statuses</option></select>
+            <select class="field column-filter" data-key="POSITION CATEGORY"><option value="">All position categories</option></select>
+            <select class="field column-filter" data-key="ITEM_STATUS"><option value="">All item statuses</option></select>
+            <button class="btn" onclick="resetFilters()">Reset filters</button>
+          </div>
+
+          <div class="table-wrap">
+            <table id="auditTable">
+              <thead id="auditHead"></thead>
+              <tbody id="auditBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <!-- Completed Audit Rows Table Card -->
+        <article class="card" style="margin-top: 24px;">
+          <div class="audit-header">
+            <div>
+              <h3>Completed Personnel Audit Records</h3>
+              <p>Dedicated table displaying all audit items with fully completed required input fields.</p>
+            </div>
+            <span class="pill green" id="completedCountBadge">0 Completed Rows</span>
+          </div>
+
+          <div class="table-wrap">
+            <table id="completedAuditTable">
+              <thead id="completedAuditHead"></thead>
+              <tbody id="completedAuditBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section id="settings" class="audit-panel">
+        <div class="grid settings-grid">
+          <article class="card">
+            <div class="section-title">
+              <div>
+                <h3>HRMO Profile</h3>
+                <p>Account fields used for audit ownership.</p>
+              </div>
+            </div>
+            <div class="form-stack">
+              <label>First name <input class="field" value="Maria" /></label>
+              <label>Last name <input class="field" value="Santos" /></label>
+              <label>Position <input class="field" value="Human Resource Management Officer" /></label>
+              <label>Email <input class="field" value="hrmo.division@deped.gov.ph" /></label>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="section-title">
+              <div>
+                <h3>Security</h3>
+                <p>Use the current passcode to authorize password and passcode changes.</p>
+              </div>
+            </div>
+            <div class="form-stack">
+              <div class="passcode-verify-wrapper" style="position: relative;">
+                <label>Current passcode
+                  <div style="position: relative; display: flex; align-items: center; margin-top: 4px;">
+                    <input class="field" id="currentPasscode" inputmode="numeric" type="password" maxlength="6" placeholder="Enter 6-digit passcode (e.g. 123456)" style="width: 100%; padding-right: 36px; transition: border-color 0.2s ease, box-shadow 0.2s ease;" />
+                    <span id="passcodeCheckIcon" style="position: absolute; right: 12px; display: none; color: #10b981; font-weight: 900; font-size: 16px;">✓</span>
+                  </div>
+                </label>
+                <small id="passcodeFeedback" style="display: none; font-size: 11px; margin-top: 4px; font-weight: 700;"></small>
+              </div>
+
+              <label>New password <input class="field sec-credential-field" type="password" placeholder="Enter new password" disabled /></label>
+              <label>Confirm new password <input class="field sec-credential-field" type="password" placeholder="Re-enter new password" disabled /></label>
+              <label>New passcode <input class="field sec-credential-field" inputmode="numeric" type="password" placeholder="6-digit passcode" disabled /></label>
+              <label>Confirm new passcode <input class="field sec-credential-field" inputmode="numeric" type="password" placeholder="Re-enter 6-digit passcode" disabled /></label>
+              <button class="btn sec-credential-btn" id="saveSecurityBtn" disabled style="opacity: 0.6; cursor: not-allowed;">Save security changes</button>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="section-title">
+              <div>
+                <h3>Collaborators & Scope</h3>
+                <p>Invite helpers to collaborate within scope.</p>
+              </div>
+            </div>
+            <div class="form-stack">
+              <label>First name <input class="field" placeholder="Jose" /></label>
+              <label>Last name <input class="field" placeholder="Reyes" /></label>
+              <label>Position <input class="field" placeholder="Administrative Officer II" /></label>
+              <label>Email address <input class="field" placeholder="assistant@deped.gov.ph" /></label>
+              <button class="btn">Invite collaborator</button>
+              <span>Collaborators inherit scope: NCR • Regional Office - Proper</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <footer>Prototype only • Data shown is mock data based on the uploaded DepEd Personnel Audit sample.</footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="rowModal" role="dialog" aria-modal="true" aria-labelledby="rowModalTitle">
+    <div class="modal">
+      <div class="section-title">
+        <div>
+          <h3 id="rowModalTitle">Personnel Item Details</h3>
+          <p>Wide modal view of the selected row. Editable fields mirror HRMO permissions.</p>
+        </div>
+        <button class="btn secondary" onclick="closeRowModal()">Close</button>
+      </div>
+      <div class="modal-grid" id="modalFields"></div>
+      <div class="actions" style="margin-top:16px;">
+        <button class="btn" onclick="closeRowModal()">Save row details</button>
+        <button class="btn secondary" onclick="closeRowModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Structured JSON Remarks Modal -->
+  <div class="modal-backdrop" id="remarksModal" role="dialog" aria-modal="true" aria-labelledby="remarksModalTitle">
+    <div class="modal" style="width: min(580px, 94vw);">
+      <div class="section-title">
+        <div>
+          <h3 id="remarksModalTitle">Personnel Item Remarks</h3>
+          <p id="remarksModalSub">Structured audit comments.</p>
+        </div>
+        <button class="btn secondary" onclick="closeRemarksModal()">Close</button>
+      </div>
+      <div class="form-stack" style="margin-top: 16px;">
+        <label>Remarks Text
+          <textarea id="remarkText" class="field" style="min-height: 100px; padding: 10px;" placeholder="Type audit remarks here..."></textarea>
+        </label>
+        <label>Updated By
+          <input id="remarkUser" class="field form-input-readonly" value="Maria Santos (HRMO)" readonly />
+        </label>
+        <label>Timestamp
+          <input id="remarkTimestamp" class="field form-input-readonly" readonly />
+        </label>
+      </div>
+      <div class="actions" style="margin-top: 20px;">
+        <button class="btn" onclick="saveRemarksModal()">Save Remarks</button>
+        <button class="btn secondary" onclick="closeRemarksModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vacancy Aging Breakdown Modal -->
+  <div class="modal-backdrop" id="vacancyDetailsModal" role="dialog" aria-modal="true" aria-labelledby="modalCategoryTitle">
+    <div class="modal" style="width: min(1000px, 95vw); max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="section-title" style="margin-bottom: 12px;">
+        <div>
+          <h3 id="modalCategoryTitle">Vacancy Details</h3>
+          <p id="modalCategorySub">Filtered personnel audit records for the selected vacancy aging status category.</p>
+        </div>
+        <button class="btn secondary" onclick="closeVacancyDetailsModal()" style="font-size: 20px; line-height: 1; padding: 4px 12px;">&times;</button>
+      </div>
+      <div style="overflow-y: auto; flex: 1; border: 1px solid var(--line); border-radius: 14px; background: #ffffff;">
+        <table style="width: 100%; min-width: 750px; border-collapse: collapse;">
+          <thead>
+            <tr style="background: rgba(15, 95, 183, 0.08); text-align: left;">
+              <th style="padding: 11px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);">Position Category</th>
+              <th style="padding: 11px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);">Item Number</th>
+              <th style="padding: 11px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);">Position Title</th>
+              <th style="padding: 11px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);">Item Status</th>
+              <th style="padding: 11px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); text-align: center;">Year Created</th>
+              <th style="padding: 11px 14px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); text-align: center;">Years Unfilled</th>
+            </tr>
+          </thead>
+          <tbody id="vacancyModalTableBody">
+            <!-- Appended Dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <div class="actions" style="margin-top: 16px;">
+        <button class="btn secondary" onclick="closeVacancyDetailsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const columns = [
+      "ITEM NUMBER",
+      "POSITION TITLE",
+      "POSITION CATEGORY",
+      "ITEM_STATUS",
+      "SG",
+      "YEAR CREATED",
+      "YEARS UNFILLED",
+      "VACANCY AGING STATUS",
+      "POSITION STATUS",
+      "NAME OF INCUMBENT",
+      "FIRST DAY OF SERVICE",
+      "DATE OF VACANCY",
+      "REASON FOR VACANCY",
+      "STATUS OF VACANCY",
+      "OTHER REMARKS",
+      "TENTATIVE DATE TO FILL-UP"
+    ];
+
+    const numericColumns = new Set(["SG", "YEAR CREATED", "YEARS UNFILLED"]);
+    const requiredInputColumns = ["POSITION STATUS", "REASON FOR VACANCY", "STATUS OF VACANCY", "TENTATIVE DATE TO FILL-UP"];
+
+    const REASONS_FOR_VACANCY = [
+      "Death",
+      "Demotion",
+      "Dropping from the Rolls",
+      "End of Term",
+      "Others",
+      "Promotion",
+      "Reclassification",
+      "Resignation"
+    ];
+
+    const STATUSES_OF_VACANCY = [
+      "Awaiting CSC Attestation",
+      "CTI Item - Request for Abolition",
+      "CTI Item - Request for Filling-Up",
+      "Hard to Fill Position - Attorney Items",
+      "Hard to Fill Position - Guidance Counselor items",
+      "Hard to Fill Position - Lack of applicants with the appropriate specialization",
+      "Hard to Fill Position - Lack of qualified applicants based on QS",
+      "On-going Hiring Process - CAR/CAR-RQA Posting Period",
+      "On-going Hiring Process - Comparative Assessment Stage",
+      "On-going Hiring Process - Deliberation Stage",
+      "On-going Hiring Process - Initial Evaluation Stage",
+      "On-going Hiring Process - Publication Stage",
+      "On-going Hiring Process - Selection & Appointment Stage",
+      "Positions not consistent in the ECP",
+      "Waiving of Items Under Special Hiring Arrangements - DOST scholar graduates",
+      "Waiving of Items Under Special Hiring Arrangements - SPIMS beneficiaries"
+    ];
+
+    const editableSelects = {
+      "POSITION STATUS": ["", "FILLED", "UNFILLED"],
+      "REASON FOR VACANCY": ["", ...REASONS_FOR_VACANCY],
+      "STATUS OF VACANCY": ["", ...STATUSES_OF_VACANCY]
+    };
+
+    const data = [
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Non-Teaching",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-ATY3-30001-2021",
+        "POSITION TITLE": "Attorney III",
+        "SG": 21,
+        "YEAR CREATED": 2021,
+        "YEARS UNFILLED": 1,
+        "VACANCY AGING STATUS": "Aging Vacancy",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2023-01-15",
+        "REASON FOR VACANCY": "Resignation",
+        "STATUS OF VACANCY": "Hard to Fill Position - Attorney Items",
+        "OTHER REMARKS": "Needs legal pool review",
+        "TENTATIVE DATE TO FILL-UP": "2026-09-30"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Non-Teaching",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-LEA2-30027-2015",
+        "POSITION TITLE": "Legal Assistant II",
+        "SG": 12,
+        "YEAR CREATED": 2015,
+        "YEARS UNFILLED": 0,
+        "VACANCY AGING STATUS": "New Vacancy",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2026-01-10",
+        "REASON FOR VACANCY": "Promotion",
+        "STATUS OF VACANCY": "On-going Hiring Process - Publication Stage",
+        "OTHER REMARKS": "",
+        "TENTATIVE DATE TO FILL-UP": "2026-10-01"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Non-Teaching",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-ADA4-84-2004",
+        "POSITION TITLE": "Administrative Aide IV",
+        "SG": 4,
+        "YEAR CREATED": 2004,
+        "YEARS UNFILLED": 3,
+        "VACANCY AGING STATUS": "Long-Term Unfilled",
+        "POSITION STATUS": "FILLED",
+        "NAME OF INCUMBENT": "JUAN DELA CRUZ",
+        "FIRST DAY OF SERVICE": "2024-03-01",
+        "DATE OF VACANCY": "",
+        "REASON FOR VACANCY": "Others",
+        "STATUS OF VACANCY": "Positions not consistent in the ECP",
+        "OTHER REMARKS": "Temporarily detailed staff assigned",
+        "TENTATIVE DATE TO FILL-UP": "2026-10-15"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Non-Teaching",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-ADA3-30228-2004",
+        "POSITION TITLE": "Administrative Aide III",
+        "SG": 3,
+        "YEAR CREATED": 2004,
+        "YEARS UNFILLED": 2,
+        "VACANCY AGING STATUS": "Extended Vacancy",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2024-05-12",
+        "REASON FOR VACANCY": "End of Term",
+        "STATUS OF VACANCY": "On-going Hiring Process - Comparative Assessment Stage",
+        "OTHER REMARKS": "",
+        "TENTATIVE DATE TO FILL-UP": "2026-11-05"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Teaching-Related",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-EPSVR-30140-2010",
+        "POSITION TITLE": "Education Program Supervisor",
+        "SG": 22,
+        "YEAR CREATED": 2010,
+        "YEARS UNFILLED": 2,
+        "VACANCY AGING STATUS": "Extended Vacancy",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2024-06-01",
+        "REASON FOR VACANCY": "Reclassification",
+        "STATUS OF VACANCY": "On-going Hiring Process - Deliberation Stage",
+        "OTHER REMARKS": "Needs subject-area validation",
+        "TENTATIVE DATE TO FILL-UP": "2026-11-05"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Non-Teaching",
+        "ITEM_STATUS": "CTI",
+        "ITEM NUMBER": "OSEC-DECSB-ADA3-30229-2004",
+        "POSITION TITLE": "Administrative Aide III",
+        "SG": 3,
+        "YEAR CREATED": 2004,
+        "YEARS UNFILLED": 4,
+        "VACANCY AGING STATUS": "Long-Term Unfilled",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2022-02-14",
+        "REASON FOR VACANCY": "Dropping from the Rolls",
+        "STATUS OF VACANCY": "CTI Item - Request for Abolition",
+        "OTHER REMARKS": "",
+        "TENTATIVE DATE TO FILL-UP": ""
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Teaching-Related",
+        "ITEM_STATUS": "CTI",
+        "ITEM NUMBER": "OSEC-DECSB-EPSVR-30163-2010",
+        "POSITION TITLE": "Education Program Supervisor",
+        "SG": 22,
+        "YEAR CREATED": 2010,
+        "YEARS UNFILLED": 0,
+        "VACANCY AGING STATUS": "New Vacancy",
+        "POSITION STATUS": "FILLED",
+        "NAME OF INCUMBENT": "MARIA CLARA ROSALES",
+        "FIRST DAY OF SERVICE": "2025-01-15",
+        "DATE OF VACANCY": "",
+        "REASON FOR VACANCY": "Promotion",
+        "STATUS OF VACANCY": "Awaiting CSC Attestation",
+        "OTHER REMARKS": "",
+        "TENTATIVE DATE TO FILL-UP": "2026-09-01"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Non-Teaching",
+        "ITEM_STATUS": "CTI",
+        "ITEM NUMBER": "OSEC-DECSB-HEPO3-30011-2015",
+        "POSITION TITLE": "Health Education and Promotion Officer III",
+        "SG": 18,
+        "YEAR CREATED": 2015,
+        "YEARS UNFILLED": 4,
+        "VACANCY AGING STATUS": "Long-Term Unfilled",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2022-08-30",
+        "REASON FOR VACANCY": "Resignation",
+        "STATUS OF VACANCY": "CTI Item - Request for Filling-Up",
+        "OTHER REMARKS": "",
+        "TENTATIVE DATE TO FILL-UP": ""
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Teaching",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-TCH3-30001-2024",
+        "POSITION TITLE": "Teacher III",
+        "SG": 15,
+        "YEAR CREATED": 2024,
+        "YEARS UNFILLED": 1,
+        "VACANCY AGING STATUS": "Aging Vacancy",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2025-03-10",
+        "REASON FOR VACANCY": "Promotion",
+        "STATUS OF VACANCY": "On-going Hiring Process - CAR/CAR-RQA Posting Period",
+        "OTHER REMARKS": "",
+        "TENTATIVE DATE TO FILL-UP": "2026-10-15"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Teaching",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-TCH1-30012-2022",
+        "POSITION TITLE": "Teacher I",
+        "SG": 11,
+        "YEAR CREATED": 2022,
+        "YEARS UNFILLED": 2,
+        "VACANCY AGING STATUS": "Extended Vacancy",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2024-01-20",
+        "REASON FOR VACANCY": "Resignation",
+        "STATUS OF VACANCY": "On-going Hiring Process - Selection & Appointment Stage",
+        "OTHER REMARKS": "Awaiting school-level posting confirmation",
+        "TENTATIVE DATE TO FILL-UP": "2026-10-30"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Teaching",
+        "ITEM_STATUS": "CTI",
+        "ITEM NUMBER": "OSEC-DECSB-MTCHR1-30008-2020",
+        "POSITION TITLE": "Master Teacher I",
+        "SG": 18,
+        "YEAR CREATED": 2020,
+        "YEARS UNFILLED": 3,
+        "VACANCY AGING STATUS": "Long-Term Unfilled",
+        "POSITION STATUS": "UNFILLED",
+        "NAME OF INCUMBENT": "",
+        "FIRST DAY OF SERVICE": "",
+        "DATE OF VACANCY": "2023-09-01",
+        "REASON FOR VACANCY": "Death",
+        "STATUS OF VACANCY": "Hard to Fill Position - Lack of qualified applicants based on QS",
+        "OTHER REMARKS": "Requires ranking and qualification validation",
+        "TENTATIVE DATE TO FILL-UP": "2026-11-20"
+      },
+      {
+        "REGION": "National Capital Region (NCR)",
+        "DIVISION": "Regional Office - Proper",
+        "POSITION CATEGORY": "Teaching",
+        "ITEM_STATUS": "Regular",
+        "ITEM NUMBER": "OSEC-DECSB-SPEDT1-30004-2023",
+        "POSITION TITLE": "Special Education Teacher I",
+        "SG": 14,
+        "YEAR CREATED": 2023,
+        "YEARS UNFILLED": 0,
+        "VACANCY AGING STATUS": "New Vacancy",
+        "POSITION STATUS": "FILLED",
+        "NAME OF INCUMBENT": "BENJAMIN SILVA",
+        "FIRST DAY OF SERVICE": "2026-02-01",
+        "DATE OF VACANCY": "",
+        "REASON FOR VACANCY": "Others",
+        "STATUS OF VACANCY": "Awaiting CSC Attestation",
+        "OTHER REMARKS": "For SPED specialization review",
+        "TENTATIVE DATE TO FILL-UP": "2026-09-15"
+      }
+    ];
+
+    let sortKey = "";
+    let sortDirection = 1;
+    let activeCategory = "Teaching";
+    const filters = {};
+    const search = document.getElementById("globalSearch");
+
+    const tabs = document.querySelectorAll(".nav button");
+    const panels = document.querySelectorAll(".audit-panel");
+    const title = document.getElementById("page-title");
+    const subtitle = document.getElementById("page-subtitle");
+    const appShell = document.getElementById("appShell");
+    const sidebar = document.getElementById("sidebar");
+    const backToDashboardBtn = document.getElementById("backToDashboardBtn");
+    const personnelTabs = document.querySelectorAll(".personnel-tab");
+
+    const currentUserRole = "HRMO";
+    const protectedColumns = new Set([
+      "ITEM NUMBER",
+      "POSITION TITLE",
+      "POSITION CATEGORY",
+      "ITEM_STATUS",
+      "SG",
+      "YEAR CREATED",
+      "YEARS UNFILLED",
+      "VACANCY AGING STATUS"
+    ]);
+
+    function isColumnEditable(col) {
+      if (currentUserRole === "HRMO") {
+        return !protectedColumns.has(col);
+      }
+      return true;
+    }
+
+    function getVacancyStatusBadgeClass(status) {
+      if (!status) return 'badge-vacancy-aging';
+      const normalized = String(status).trim();
+      switch (normalized) {
+        case 'Long-Term Unfilled':
+          return 'badge-vacancy-long-term';
+        case 'Extended Vacancy':
+          return 'badge-vacancy-extended';
+        case 'Aging Vacancy':
+          return 'badge-vacancy-aging';
+        case 'New Vacancy':
+          return 'badge-vacancy-new';
+        case 'Newly Created Item':
+          return 'badge-vacancy-newly-created';
+        default:
+          return 'badge-vacancy-aging';
+      }
+    }
+
+    function parseRemark(remarkStr) {
+      if (!remarkStr) return null;
+      try {
+        const obj = JSON.parse(remarkStr);
+        if (obj && typeof obj === "object" && obj.text !== undefined) {
+          return obj;
+        }
+      } catch (e) {}
+      return { text: String(remarkStr), updatedBy: "Maria Santos (HRMO)", timestamp: "" };
+    }
+
+    let activeRemarkRowIndex = -1;
+
+    function openRemarksModal(dataIndex) {
+      activeRemarkRowIndex = dataIndex;
+      const row = data[dataIndex];
+      const parsed = parseRemark(row["OTHER REMARKS"]);
+
+      document.getElementById("remarksModalTitle").textContent = `Audit Remarks: ${row["ITEM NUMBER"]}`;
+      document.getElementById("remarksModalSub").textContent = `${row["POSITION TITLE"]} (${row["POSITION CATEGORY"]})`;
+      document.getElementById("remarkText").value = parsed ? parsed.text : "";
+      document.getElementById("remarkUser").value = (parsed && parsed.updatedBy) ? parsed.updatedBy : "Maria Santos (HRMO)";
+      document.getElementById("remarkTimestamp").value = (parsed && parsed.timestamp) ? new Date(parsed.timestamp).toLocaleString() : new Date().toLocaleString();
+
+      document.getElementById("remarksModal").classList.add("open");
+    }
+
+    function closeRemarksModal() {
+      document.getElementById("remarksModal").classList.remove("open");
+    }
+
+    function saveRemarksModal() {
+      if (activeRemarkRowIndex < 0) return;
+      const payload = JSON.stringify({
+        text: document.getElementById("remarkText").value.trim(),
+        updatedBy: document.getElementById("remarkUser").value || "Maria Santos (HRMO)",
+        timestamp: new Date().toISOString()
+      });
+      updateRowField(activeRemarkRowIndex, "OTHER REMARKS", payload);
+      closeRemarksModal();
+    }
+
+    const copy = {
+      home: {
+        title: "DepEd Personnel Audit",
+        subtitle: "Live summary of unfilled plantilla items and vacancy reasons."
+      },
+      audit: {
+        title: "DepEd Personnel Audit",
+        subtitle: "Update exact schema columns, sort/filter each column, and open rows in a wide detail modal."
+      },
+      settings: {
+        title: "Settings",
+        subtitle: "Manage HRMO profile, collaborators, password, passcode, and dark mode."
+      }
+    };
+
+    function uniqueValues(key) {
+      return [...new Set(data.map(row => row[key]).filter(Boolean))].sort();
+    }
+    function isRowComplete(row) {
+      const status = String(row["POSITION STATUS"] || "").toUpperCase();
+      if (!status) return false;
+
+      if (status === "FILLED") {
+        return String(row["NAME OF INCUMBENT"] ?? "").trim() !== "" &&
+               String(row["FIRST DAY OF SERVICE"] ?? "").trim() !== "";
+      }
+
+      if (status === "UNFILLED") {
+        return String(row["REASON FOR VACANCY"] ?? "").trim() !== "" &&
+               String(row["STATUS OF VACANCY"] ?? "").trim() !== "" &&
+               String(row["TENTATIVE DATE TO FILL-UP"] ?? "").trim() !== "";
+      }
+
+      return false;
+    }
+
+    function completionPercent(category) {
+      const categoryRows = data.filter(row => row["POSITION CATEGORY"] === category);
+      if (!categoryRows.length) return 0;
+      const completeRows = categoryRows.filter(isRowComplete).length;
+      return Math.round((completeRows / categoryRows.length) * 100);
+    }
+
+    function renderCompletionStickers() {
+      const categories = ['Teaching', 'Non-Teaching', 'Teaching-Related'];
+
+      categories.forEach(cat => {
+        const catRows = data.filter(row => row["POSITION CATEGORY"] === cat);
+        const totalCount = catRows.length;
+        const completedCount = catRows.filter(isRowComplete).length;
+        const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+        const countElement = document.querySelector(`[data-category-count="${cat}"]`);
+        if (countElement) {
+          countElement.textContent = totalCount;
+        }
+
+        const stickerElement = document.querySelector(`[data-category-sticker="${cat}"]`);
+        if (stickerElement) {
+          stickerElement.textContent = `${completionPercentage}% completion rate`;
+        }
+
+        const progressElement = document.querySelector(`[data-category-progress="${cat}"]`);
+        if (progressElement) {
+          progressElement.style.width = `${completionPercentage}%`;
+          if (completionPercentage === 100) {
+            progressElement.classList.remove('progress-fill-blue');
+            progressElement.classList.add('progress-fill-green');
+          } else {
+            progressElement.classList.remove('progress-fill-green');
+            progressElement.classList.add('progress-fill-blue');
+          }
+        }
+      });
+    }
+
+    function handlePositionStatusChange(dataIndex, newStatus) {
+      const row = data[dataIndex];
+      if (!row) return;
+
+      row["POSITION STATUS"] = newStatus;
+
+      // Reset dependent fields depending on FILLED or UNFILLED status
+      if (newStatus === "UNFILLED") {
+        row["NAME OF INCUMBENT"] = "";
+        row["FIRST DAY OF SERVICE"] = "";
+      } else if (newStatus === "FILLED") {
+        row["REASON FOR VACANCY"] = "";
+        row["STATUS OF VACANCY"] = "";
+        row["TENTATIVE DATE TO FILL-UP"] = "";
+        row["DATE OF VACANCY"] = "";
+        row["OTHER REMARKS"] = "";
+      }
+
+      renderCompletionStickers();
+      renderRows();
+      renderCompletedRows();
+      if (typeof updateAgingChart === "function") updateAgingChart();
+    }
+
+    function updateRowField(dataIndex, col, newValue) {
+      if (!isColumnEditable(col)) return;
+
+      if (col === "POSITION STATUS") {
+        handlePositionStatusChange(dataIndex, newValue);
+        return;
+      }
+
+      if (col === "NAME OF INCUMBENT") {
+        newValue = String(newValue).toUpperCase();
+      }
+
+      data[dataIndex][col] = newValue;
+      renderCompletionStickers();
+      renderRows();
+      renderCompletedRows();
+      if (typeof updateAgingChart === "function") updateAgingChart();
+    }
+
+    function renderCellHTML(row, col, dataIndex) {
+      const sticky = col === "ITEM NUMBER" ? "sticky-1" : col === "POSITION TITLE" ? "sticky-2" : "";
+      const numeric = numericColumns.has(col) ? "numeric" : "";
+      const value = row[col] ?? "";
+      const editable = isColumnEditable(col);
+      const posStatus = String(row["POSITION STATUS"] || "").toUpperCase();
+      const isFilled = posStatus === "FILLED";
+
+      const isReadOnlyCol = ["POSITION CATEGORY", "ITEM_STATUS", "SG", "YEAR CREATED", "YEARS UNFILLED", "VACANCY AGING STATUS"].includes(col);
+      const readOnlyClass = isReadOnlyCol ? "table-readonly-cell" : "";
+
+      if (col === "VACANCY AGING STATUS") {
+        const statusText = value || 'Aging Vacancy';
+        const badgeClass = getVacancyStatusBadgeClass(statusText);
+        return `<td class="${sticky} ${numeric} ${readOnlyClass}"><span class="badge-vacancy-status ${badgeClass}">${statusText}</span></td>`;
+      }
+
+      if (!editable) {
+        return `<td class="${sticky} ${numeric} ${readOnlyClass}">${value}</td>`;
+      }
+
+      if (col === "OTHER REMARKS") {
+        if (isFilled) {
+          return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+            <button type="button" class="remark-badge-btn form-input-disabled" disabled tabindex="-1" style="border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: #f1f5f9; color: #94a3b8; font-size: 11px; font-weight: 800; cursor: not-allowed; display: inline-flex; align-items: center; gap: 4px; opacity: 0.65;">
+              <span>N/A</span>
+            </button>
+          </td>`;
+        }
+        const remarkData = parseRemark(value);
+        const textPreview = remarkData ? remarkData.text : "";
+        const displayLabel = textPreview ? (textPreview.length > 22 ? textPreview.substring(0, 22) + "..." : textPreview) : "+ Add Remark";
+
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <button type="button" class="remark-badge-btn" onclick="openRemarksModal(${dataIndex})" title="${textPreview || 'Add/Edit Remark'}" style="border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; background: rgba(15,95,183,0.1); color: var(--blue); font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <span style="font-size: 13px; font-weight: 900;">+</span>
+            <span>${displayLabel}</span>
+          </button>
+        </td>`;
+      }
+
+      if (col === "POSITION STATUS") {
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <select class="form-input position-status-select" onchange="handlePositionStatusChange(${dataIndex}, this.value)">
+            <option value="">-- Select Status --</option>
+            <option value="FILLED" ${posStatus === "FILLED" ? "selected" : ""}>FILLED</option>
+            <option value="UNFILLED" ${posStatus === "UNFILLED" ? "selected" : ""}>UNFILLED</option>
+          </select>
+        </td>`;
+      }
+
+      // When FILLED: Reason for Vacancy, Status of Vacancy, Tentative Date to Fill-Up, Date of Vacancy & Other Remarks are disabled & N/A
+      if (col === "REASON FOR VACANCY") {
+        const disabledClass = isFilled ? "form-input-disabled" : "";
+        const disabledAttr = isFilled ? 'disabled tabindex="-1"' : "";
+        const displayVal = isFilled ? "" : value;
+
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <select class="form-input reason-for-vacancy-select ${disabledClass}" ${disabledAttr} onchange="updateRowField(${dataIndex}, 'REASON FOR VACANCY', this.value)">
+            <option value="">${isFilled ? "N/A" : "-- Select Reason --"}</option>
+            ${!isFilled ? REASONS_FOR_VACANCY.map(opt => `<option value="${opt}" ${displayVal === opt ? "selected" : ""}>${opt}</option>`).join("") : ""}
+          </select>
+        </td>`;
+      }
+
+      if (col === "STATUS OF VACANCY") {
+        const disabledClass = isFilled ? "form-input-disabled" : "";
+        const disabledAttr = isFilled ? 'disabled tabindex="-1"' : "";
+        const displayVal = isFilled ? "" : value;
+
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <select class="form-input status-of-vacancy-select ${disabledClass}" ${disabledAttr} onchange="updateRowField(${dataIndex}, 'STATUS OF VACANCY', this.value)">
+            <option value="">${isFilled ? "N/A" : "-- Select Status --"}</option>
+            ${!isFilled ? STATUSES_OF_VACANCY.map(opt => `<option value="${opt}" ${displayVal === opt ? "selected" : ""}>${opt}</option>`).join("") : ""}
+          </select>
+        </td>`;
+      }
+
+      if (col === "TENTATIVE DATE TO FILL-UP") {
+        const disabledClass = isFilled ? "form-input-disabled" : "";
+        const disabledAttr = isFilled ? 'disabled tabindex="-1"' : "readonly";
+        const dateVal = isFilled ? "" : value;
+
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <input type="text"
+                 class="form-input audit-date-picker ${disabledClass}"
+                 value="${dateVal}"
+                 ${disabledAttr}
+                 onkeydown="return false;"
+                 onpaste="return false;"
+                 ${!isFilled ? `onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }"` : ""}
+                 onchange="updateRowField(${dataIndex}, 'TENTATIVE DATE TO FILL-UP', this.value)"
+                 placeholder="${isFilled ? "N/A" : "Select Date"}"
+                 style="${!isFilled ? "cursor: pointer;" : ""}" />
+        </td>`;
+      }
+
+      // When UNFILLED: Name of Incumbent and First Day of Service are disabled & N/A
+      if (col === "NAME OF INCUMBENT") {
+        const disabledClass = !isFilled ? "form-input-disabled" : "";
+        const disabledAttr = !isFilled ? 'disabled tabindex="-1"' : "";
+        const incumbentVal = isFilled ? String(value).toUpperCase() : "";
+
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <input type="text"
+                 class="form-input name-of-incumbent ${disabledClass}"
+                 value="${incumbentVal}"
+                 ${disabledAttr}
+                 style="text-transform: uppercase; font-weight: 700;"
+                 oninput="this.value = this.value.toUpperCase();"
+                 onchange="updateRowField(${dataIndex}, 'NAME OF INCUMBENT', this.value.toUpperCase())"
+                 placeholder="${isFilled ? "ENTER INCUMBENT NAME" : "N/A"}" />
+        </td>`;
+      }
+
+      if (col === "FIRST DAY OF SERVICE") {
+        const disabledClass = !isFilled ? "form-input-disabled" : "";
+        const disabledAttr = !isFilled ? 'disabled tabindex="-1"' : "readonly";
+        const firstDayVal = isFilled ? String(value) : "";
+
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <input type="text"
+                 class="form-input first-day-of-service audit-date-picker ${disabledClass}"
+                 value="${firstDayVal}"
+                 ${disabledAttr}
+                 onkeydown="return false;"
+                 onpaste="return false;"
+                 ${isFilled ? `onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }"` : ""}
+                 onchange="updateRowField(${dataIndex}, 'FIRST DAY OF SERVICE', this.value)"
+                 placeholder="${isFilled ? "Select Date" : "N/A"}"
+                 style="${isFilled ? "cursor: pointer;" : ""}"
+                 data-row-id="${dataIndex}" />
+        </td>`;
+      }
+
+      if (col === "DATE OF VACANCY") {
+        const disabledClass = isFilled ? "form-input-disabled" : "";
+        const disabledAttr = isFilled ? 'disabled tabindex="-1"' : "readonly";
+        const dateVal = isFilled ? "" : value;
+
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <input type="text"
+                 class="audit-date-picker ${disabledClass}"
+                 value="${dateVal}"
+                 ${disabledAttr}
+                 onkeydown="return false;"
+                 onpaste="return false;"
+                 ${!isFilled ? `onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }"` : ""}
+                 onchange="updateRowField(${dataIndex}, 'DATE OF VACANCY', this.value)"
+                 style="${!isFilled ? "cursor: pointer;" : ""}"
+                 placeholder="${isFilled ? "N/A" : "Select Date"}" />
+        </td>`;
+      }
+
+      if (editableSelects[col]) {
+        return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
+          <select onchange="updateRowField(${dataIndex}, '${col}', this.value)">
+            ${editableSelects[col].map(option => `<option ${option === value ? "selected" : ""}>${option}</option>`).join("")}
+          </select>
+        </td>`;
+      }
+
+      return `<td class="${sticky} ${numeric}">${value}</td>`;
+    }
+
+    function renderHeader() {
+      const head = document.getElementById("auditHead");
+      const compHead = document.getElementById("completedAuditHead");
+
+      const headerHTML = "<tr>" +
+        `<th class="status-col">
+          <div class="th-label">
+            <span>Status</span>
+            <button type="button" onclick="sortBy('STATUS')" aria-label="Sort Status">${sortKey === 'STATUS' ? (sortDirection === 1 ? "↑" : "↓") : "↕"}</button>
+          </div>
+          <select onchange="setColumnFilter('STATUS', this.value)" aria-label="Filter Status">
+            <option value="" ${!filters['STATUS'] ? 'selected' : ''}>All</option>
+            <option value="Complete" ${filters['STATUS'] === 'Complete' ? 'selected' : ''}>Complete</option>
+            <option value="Pending" ${filters['STATUS'] === 'Pending' ? 'selected' : ''}>Pending</option>
+          </select>
+        </th>` +
+        columns.map((col) => {
+          const sticky = col === "ITEM NUMBER" ? "sticky-1" : col === "POSITION TITLE" ? "sticky-2" : "";
+          const numeric = numericColumns.has(col) ? "numeric" : "";
+          const inputFilterColumns = new Set(["ITEM NUMBER", "NAME OF INCUMBENT", "REASON FOR VACANCY", "OTHER REMARKS"]);
+          const options = uniqueValues(col).map(value => `<option value="${value}">${value}</option>`).join("");
+          const filterControl = inputFilterColumns.has(col)
+            ? `<input type="text" value="${filters[col] ?? ""}" oninput="setColumnFilter('${col}', this.value)" aria-label="Filter ${col}" placeholder="Type to filter..." />`
+            : `<select onchange="setColumnFilter('${col}', this.value)" aria-label="Filter ${col}">
+                <option value="">All</option>
+                ${options}
+              </select>`;
+          return `
+            <th class="${sticky} ${numeric}">
+              <div class="th-label">
+                <span>${col}</span>
+                <button type="button" onclick="sortBy('${col}')" aria-label="Sort ${col}">${sortKey === col ? (sortDirection === 1 ? "↑" : "↓") : "↕"}</button>
+              </div>
+              ${filterControl}
+            </th>
+          `;
+        }).join("") + "</tr>";
+
+      if (head) head.innerHTML = headerHTML;
+      if (compHead) compHead.innerHTML = headerHTML;
+    }
+
+    function renderRows() {
+      const body = document.getElementById("auditBody");
+      const q = search.value.trim().toLowerCase();
+
+      let rows = data.filter(row => {
+        const matchesCategory = row["POSITION CATEGORY"] === activeCategory;
+        const isComp = isRowComplete(row);
+        // Only pending (uncompleted) rows appear in the main panel table
+        if (isComp) return false;
+
+        const rowStatus = "Pending";
+        const matchesStatusFilter = !filters["STATUS"] || rowStatus === filters["STATUS"];
+        const matchesSearch = !q || columns.some(col => String(row[col] ?? "").toLowerCase().includes(q)) || rowStatus.toLowerCase().includes(q);
+        const matchesFilters = Object.entries(filters).every(([key, value]) => {
+          if (key === "STATUS") return true;
+          return !value || String(row[key] ?? "").toLowerCase().includes(String(value).toLowerCase());
+        });
+        return matchesCategory && matchesStatusFilter && matchesSearch && matchesFilters;
+      });
+
+      if (sortKey) {
+        rows = [...rows].sort((a, b) => {
+          if (sortKey === "STATUS") return 0;
+          const left = a[sortKey] ?? "";
+          const right = b[sortKey] ?? "";
+          if (numericColumns.has(sortKey)) return (Number(left) - Number(right)) * sortDirection;
+          return String(left).localeCompare(String(right)) * sortDirection;
+        });
+      }
+
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="${columns.length + 1}" style="text-align:center; padding: 28px; color: var(--muted); font-size: 13px;">All personnel audit items for ${activeCategory} are completed! Completed items have been transferred to the Completed Personnel Audit Records table below.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = rows.map((row) => `
+        <tr onclick="openRowModal(${data.indexOf(row)})">
+          <td class="status-col">
+            <span class="row-status incomplete">● Pending</span>
+          </td>
+          ${columns.map(col => renderCellHTML(row, col, data.indexOf(row))).join("")}
+        </tr>
+      `).join("");
+      initDatePickers();
+    }
+
+    function renderCompletedRows() {
+      const body = document.getElementById("completedAuditBody");
+      const countBadge = document.getElementById("completedCountBadge");
+      if (!body) return;
+
+      const q = search.value.trim().toLowerCase();
+
+      let completedRows = data.filter(row => {
+        const matchesCategory = row["POSITION CATEGORY"] === activeCategory;
+        const isComp = isRowComplete(row);
+        const matchesSearch = !q || columns.some(col => String(row[col] ?? "").toLowerCase().includes(q));
+        const matchesFilters = Object.entries(filters).every(([key, value]) => {
+          if (key === "STATUS") return true;
+          return !value || String(row[key] ?? "").toLowerCase().includes(String(value).toLowerCase());
+        });
+        return matchesCategory && isComp && matchesSearch && matchesFilters;
+      });
+
+      if (countBadge) {
+        countBadge.textContent = `${completedRows.length} Completed Row${completedRows.length === 1 ? "" : "s"}`;
+      }
+
+      if (sortKey) {
+        completedRows = [...completedRows].sort((a, b) => {
+          if (sortKey === "STATUS") return 0;
+          const left = a[sortKey] ?? "";
+          const right = b[sortKey] ?? "";
+          if (numericColumns.has(sortKey)) return (Number(left) - Number(right)) * sortDirection;
+          return String(left).localeCompare(String(right)) * sortDirection;
+        });
+      }
+
+      if (!completedRows.length) {
+        body.innerHTML = `<tr><td colspan="${columns.length + 1}" style="text-align:center; padding: 28px; color: var(--muted); font-size: 13px;">No completed personnel audit rows for ${activeCategory} yet. Fill in required fields for ${activeCategory} positions to complete a row.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = completedRows.map((row) => `
+        <tr onclick="openRowModal(${data.indexOf(row)})">
+          <td class="status-col">
+            <span class="row-status complete">● Complete</span>
+          </td>
+          ${columns.map(col => renderCellHTML(row, col, data.indexOf(row))).join("")}
+        </tr>
+      `).join("");
+      initDatePickers();
+    }
+
+    function renderShortcutFilters() {
+      document.querySelectorAll(".column-filter").forEach(select => {
+        const key = select.dataset.key;
+        select.innerHTML = `<option value="">All ${key.toLowerCase()}</option>` + uniqueValues(key).map(value => `<option value="${value}">${value}</option>`).join("");
+        select.addEventListener("change", () => {
+          filters[key] = select.value;
+          renderCompletionStickers();
+          renderRows();
+          renderCompletedRows();
+        });
+      });
+    }
+
+    function sortBy(key) {
+      if (sortKey === key) sortDirection *= -1;
+      else {
+        sortKey = key;
+        sortDirection = 1;
+      }
+      renderHeader();
+      renderRows();
+      renderCompletedRows();
+    }
+
+    function setColumnFilter(key, value) {
+      filters[key] = value;
+      renderCompletionStickers();
+      renderRows();
+      renderCompletedRows();
+    }
+
+    function resetFilters() {
+      Object.keys(filters).forEach(key => delete filters[key]);
+      search.value = "";
+      document.querySelectorAll("th select, .column-filter").forEach(select => select.value = "");
+      renderCompletionStickers();
+      renderRows();
+      renderCompletedRows();
+    }
+
+    function setPersonnelCategory(category) {
+      activeCategory = category;
+      filters["POSITION CATEGORY"] = "";
+      document.querySelectorAll('th select[aria-label="Filter POSITION CATEGORY"], .column-filter[data-key="POSITION CATEGORY"]').forEach(select => select.value = "");
+      personnelTabs.forEach(button => button.classList.toggle("active", button.dataset.category === category));
+      renderCompletionStickers();
+      renderRows();
+      renderCompletedRows();
+    }
+
+    function initDatePickers() {
+      if (typeof flatpickr === "function") {
+        try {
+          flatpickr(".audit-date-picker", {
+            dateFormat: "Y-m-d",
+            changeMonth: true,
+            changeYear: true,
+            clickOpens: true,
+            allowInput: false
+          });
+        } catch(e) {}
+      }
+    }
+
+    function openRowModal(index) {
+      const row = data[index];
+      const fields = document.getElementById("modalFields");
+      const posStatus = String(row["POSITION STATUS"] || "").toUpperCase();
+      const isFilled = posStatus === "FILLED";
+      const disabledClass = isFilled ? 'form-input-disabled' : '';
+      const disabledAttr = isFilled ? 'disabled tabindex="-1"' : 'readonly';
+
+      const group1HTML = `
+        <span class="modal-section-header">Personnel Item Information (Read-Only)</span>
+        <label>ITEM NUMBER<input id="modal_item_number" class="field form-input-readonly" type="text" value="${row["ITEM NUMBER"] ?? ''}" readonly /></label>
+        <label>POSITION TITLE<input id="modal_position_title" class="field form-input-readonly" type="text" value="${row["POSITION TITLE"] ?? ''}" readonly /></label>
+        <label>POSITION CATEGORY<input id="modal_position_category" class="field form-input-readonly" type="text" value="${row["POSITION CATEGORY"] ?? ''}" readonly /></label>
+        <label>ITEM STATUS<input id="modal_item_status" class="field form-input-readonly" type="text" value="${row["ITEM_STATUS"] ?? ''}" readonly /></label>
+        <label>SG (SALARY GRADE)<input id="modal_sg" class="field numeric form-input-readonly" type="text" value="${row["SG"] ?? ''}" readonly /></label>
+        <label>YEAR CREATED<input id="modal_year_created" class="field numeric form-input-readonly" type="text" value="${row["YEAR CREATED"] ?? ''}" readonly /></label>
+        <label>YEARS UNFILLED<input id="modal_years_unfilled" class="field numeric form-input-readonly" type="text" value="${row["YEARS UNFILLED"] ?? ''}" readonly /></label>
+        <label>VACANCY AGING STATUS<input id="modal_vacancy_aging_status" class="field form-input-readonly" type="text" value="${row["VACANCY AGING STATUS"] ?? ''}" readonly /></label>
+        <label>NAME OF INCUMBENT (READ-ONLY)<input id="modal_readonly_name_of_incumbent" class="field form-input-readonly" type="text" value="${row["NAME OF INCUMBENT"] ? String(row["NAME OF INCUMBENT"]).toUpperCase() : 'N/A'}" readonly /></label>
+        <label>FIRST DAY OF SERVICE (READ-ONLY)<input id="modal_readonly_first_day_of_service" class="field form-input-readonly" type="text" value="${row["FIRST DAY OF SERVICE"] || 'N/A'}" readonly /></label>
+      `;
+
+      const dividerHTML = `<hr class="modal-section-divider" />`;
+
+      const group2HTML = `
+        <span class="modal-section-header">Update Form Fields</span>
+        <label>POSITION STATUS
+          <select class="field position-status-select" onchange="handlePositionStatusChange(${index}, this.value); openRowModal(${index});">
+            <option value="">-- Select Status --</option>
+            <option value="FILLED" ${posStatus === 'FILLED' ? 'selected' : ''}>FILLED</option>
+            <option value="UNFILLED" ${posStatus === 'UNFILLED' ? 'selected' : ''}>UNFILLED</option>
+          </select>
+        </label>
+        <label>NAME OF INCUMBENT
+          <input id="modal_name_of_incumbent"
+                 class="field name-of-incumbent ${!isFilled ? 'form-input-disabled' : ''}"
+                 type="text"
+                 value="${isFilled ? (row["NAME OF INCUMBENT"] ? String(row["NAME OF INCUMBENT"]).toUpperCase() : '') : ''}"
+                 ${!isFilled ? 'disabled tabindex="-1"' : ''}
+                 style="text-transform: uppercase; font-weight: 700;"
+                 oninput="this.value = this.value.toUpperCase();"
+                 onchange="updateRowField(${index}, 'NAME OF INCUMBENT', this.value.toUpperCase())"
+                 placeholder="${isFilled ? 'ENTER INCUMBENT NAME' : 'N/A'}" />
+        </label>
+        <label>FIRST DAY OF SERVICE
+          <input id="modal_first_day_of_service"
+                 class="field audit-date-picker ${!isFilled ? 'form-input-disabled' : ''}"
+                 type="text"
+                 value="${isFilled ? (row["FIRST DAY OF SERVICE"] ?? '') : ''}"
+                 ${!isFilled ? 'disabled tabindex="-1"' : 'readonly'}
+                 onkeydown="return false;"
+                 onpaste="return false;"
+                 ${isFilled ? 'onclick="if(typeof this.showPicker === \'function\') { this.showPicker(); }"' : ''}
+                 onchange="updateRowField(${index}, 'FIRST DAY OF SERVICE', this.value)"
+                 placeholder="${isFilled ? 'Select Date' : 'N/A'}"
+                 style="${isFilled ? 'cursor: pointer;' : ''}" />
+        </label>
+        <label>DATE OF VACANCY
+          <input class="field audit-date-picker ${disabledClass}"
+                 type="text"
+                 value="${isFilled ? '' : (row["DATE OF VACANCY"] ?? '')}"
+                 ${disabledAttr}
+                 ${!isFilled ? 'onkeydown="return false;" onpaste="return false;" onclick="if(typeof this.showPicker === \'function\') { this.showPicker(); }"' : ''}
+                 onchange="updateRowField(${index}, 'DATE OF VACANCY', this.value)"
+                 placeholder="${isFilled ? 'N/A' : 'Select Date'}"
+                 style="${!isFilled ? 'cursor: pointer;' : ''}" />
+        </label>
+        <label>REASON FOR VACANCY
+          <select class="field reason-for-vacancy-select ${disabledClass}" ${disabledAttr} onchange="updateRowField(${index}, 'REASON FOR VACANCY', this.value)">
+            <option value="">${isFilled ? 'N/A' : '-- Select Reason --'}</option>
+            ${!isFilled ? REASONS_FOR_VACANCY.map(opt => `<option value="${opt}" ${row["REASON FOR VACANCY"] === opt ? 'selected' : ''}>${opt}</option>`).join('') : ''}
+          </select>
+        </label>
+        <label>STATUS OF VACANCY
+          <select id="modal_status_of_vacancy" class="field status-of-vacancy-select ${disabledClass}" ${disabledAttr} onchange="updateRowField(${index}, 'STATUS OF VACANCY', this.value)">
+            <option value="">${isFilled ? 'N/A' : '-- Select Status --'}</option>
+            ${!isFilled ? STATUSES_OF_VACANCY.map(opt => `<option value="${opt}" ${row["STATUS OF VACANCY"] === opt ? 'selected' : ''}>${opt}</option>`).join('') : ''}
+          </select>
+        </label>
+        <label>TENTATIVE DATE TO FILL-UP
+          <input class="field audit-date-picker ${disabledClass}"
+                 type="text"
+                 value="${isFilled ? '' : (row["TENTATIVE DATE TO FILL-UP"] ?? '')}"
+                 ${disabledAttr}
+                 ${!isFilled ? 'onkeydown="return false;" onpaste="return false;" onclick="if(typeof this.showPicker === \'function\') { this.showPicker(); }"' : ''}
+                 onchange="updateRowField(${index}, 'TENTATIVE DATE TO FILL-UP', this.value)"
+                 placeholder="${isFilled ? 'N/A' : 'Select Date'}"
+                 style="${!isFilled ? 'cursor: pointer;' : ''}" />
+        </label>
+        <label class="span-3">OTHER REMARKS
+          ${isFilled ? `
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input class="field form-input-disabled" value="N/A" disabled tabindex="-1" style="flex:1;" />
+              <button type="button" class="btn secondary form-input-disabled" disabled style="min-height:42px;">Edit Remarks Modal</button>
+            </div>
+          ` : `
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input class="field form-input-readonly" value="${parseRemark(row["OTHER REMARKS"]) ? (parseRemark(row["OTHER REMARKS"]).text || '') : (row["OTHER REMARKS"] ?? '')}" readonly style="flex:1;" />
+              <button type="button" class="btn" style="min-height:42px;" onclick="closeRowModal(); openRemarksModal(${index});">Edit Remarks Modal</button>
+            </div>
+          `}
+        </label>
+      `;
+
+      fields.innerHTML = group1HTML + dividerHTML + group2HTML;
+      document.getElementById("rowModal").classList.add("open");
+      initDatePickers();
+    }
+
+    function closeRowModal() {
+      document.getElementById("rowModal").classList.remove("open");
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const target = tab.dataset.tab;
+        tabs.forEach((button) => button.classList.remove("active"));
+        panels.forEach((panel) => panel.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(target).classList.add("active");
+        title.textContent = copy[target].title;
+        subtitle.textContent = copy[target].subtitle;
+        if (backToDashboardBtn) backToDashboardBtn.style.display = target === "audit" ? "none" : "inline-flex";
+      });
+    });
+
+    personnelTabs.forEach((button) => {
+      button.addEventListener("click", () => setPersonnelCategory(button.dataset.category));
+    });
+
+    sidebar.addEventListener("mouseenter", () => appShell.classList.add("sidebar-open"));
+    sidebar.addEventListener("mouseleave", () => {
+      appShell.classList.remove("sidebar-open");
+    });
+
+    document.getElementById("darkModeBtn").addEventListener("click", () => {
+      document.body.classList.toggle("dark");
+    });
+
+    search.addEventListener("input", () => {
+      renderRows();
+      renderCompletedRows();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeRowModal();
+        closeVacancyDetailsModal();
+      }
+    });
+
+    document.getElementById("vacancyDetailsModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "vacancyDetailsModal") {
+        closeVacancyDetailsModal();
+      }
+    });
+
+    /* ==========================================================================
+       Vacancy Aging Chart.js & Modal Interactive System
+       ========================================================================== */
+    let agingChartInstance = null;
+
+    const VACANCY_CATEGORIES = [
+      "Newly Created Item",
+      "New Vacancy",
+      "Aging Vacancy",
+      "Extended Vacancy",
+      "Long-Term Unfilled"
+    ];
+
+    const CATEGORY_COLORS = {
+      "Newly Created Item": { bg: "rgba(37, 99, 235, 0.85)", border: "#1d4ed8" },
+      "New Vacancy": { bg: "rgba(16, 185, 129, 0.85)", border: "#059669" },
+      "Aging Vacancy": { bg: "rgba(100, 116, 139, 0.85)", border: "#475569" },
+      "Extended Vacancy": { bg: "rgba(249, 115, 22, 0.85)", border: "#ea580c" },
+      "Long-Term Unfilled": { bg: "rgba(239, 68, 68, 0.85)", border: "#dc2626" }
+    };
+
+    function getAgingCategoryCounts() {
+      const counts = {
+        "Newly Created Item": 0,
+        "New Vacancy": 0,
+        "Aging Vacancy": 0,
+        "Extended Vacancy": 0,
+        "Long-Term Unfilled": 0
+      };
+
+      data.forEach(row => {
+        const rawStatus = row["VACANCY AGING STATUS"] || row.vacancyAgingStatus || row.vacancy_aging_status || "";
+        const status = String(rawStatus).trim();
+        if (!status) return;
+
+        const matchedCategory = VACANCY_CATEGORIES.find(cat => cat.toLowerCase() === status.toLowerCase());
+        if (matchedCategory) {
+          counts[matchedCategory]++;
+        } else if (status.toLowerCase().includes("long")) {
+          counts["Long-Term Unfilled"]++;
+        } else if (status.toLowerCase().includes("extended")) {
+          counts["Extended Vacancy"]++;
+        } else if (status.toLowerCase().includes("aging")) {
+          counts["Aging Vacancy"]++;
+        } else if (status.toLowerCase().includes("newly")) {
+          counts["Newly Created Item"]++;
+        } else if (status.toLowerCase().includes("new")) {
+          counts["New Vacancy"]++;
+        }
+      });
+
+      return counts;
+    }
+
+    function initAgingChart() {
+      const canvas = document.getElementById("agingChart");
+      if (!canvas) return;
+
+      const countsObj = getAgingCategoryCounts();
+      const countsData = VACANCY_CATEGORIES.map(cat => countsObj[cat]);
+
+      const bgColors = VACANCY_CATEGORIES.map(cat => CATEGORY_COLORS[cat].bg);
+      const borderColors = VACANCY_CATEGORIES.map(cat => CATEGORY_COLORS[cat].border);
+
+      const barLabelsPlugin = {
+        id: "barLabels",
+        afterDatasetsDraw(chart) {
+          const { ctx, data: chartData } = chart;
+          ctx.save();
+          const isDark = document.body.classList.contains("dark");
+          ctx.font = "bold 12px 'Plus Jakarta Sans', sans-serif";
+          ctx.fillStyle = isDark ? "#f8fafc" : "#374151";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+
+          const meta = chart.getDatasetMeta(0);
+          if (meta && meta.data) {
+            meta.data.forEach((bar, index) => {
+              const val = chartData.datasets[0].data[index];
+              if (val !== undefined && val !== null) {
+                ctx.fillText(val, bar.x, bar.y - 4);
+              }
+            });
+          }
+          ctx.restore();
+        }
+      };
+
+      const ctx = canvas.getContext("2d");
+      if (agingChartInstance) {
+        agingChartInstance.destroy();
+      }
+
+      agingChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: VACANCY_CATEGORIES,
+          datasets: [{
+            label: "Unfilled Items",
+            data: countsData,
+            backgroundColor: bgColors,
+            borderColor: borderColors,
+            borderWidth: 1.5,
+            borderRadius: 8,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: {
+              top: 24,
+              bottom: 0
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return ` ${context.raw} Unfilled Items`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: "600" },
+                color: function() { return document.body.classList.contains("dark") ? "#cbd5e1" : "#475569"; }
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0,
+                font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 },
+                color: function() { return document.body.classList.contains("dark") ? "#94a3b8" : "#64748b"; }
+              },
+              grid: {
+                color: function() { return document.body.classList.contains("dark") ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"; }
+              }
+            }
+          },
+          onHover: (event, activeElements) => {
+            if (event.native && event.native.target) {
+              event.native.target.style.cursor = activeElements.length ? "pointer" : "default";
+            }
+          },
+          onClick: (event, activeElements) => {
+            if (activeElements.length > 0) {
+              const index = activeElements[0].index;
+              const categoryLabel = VACANCY_CATEGORIES[index];
+              openVacancyDetailsModal(categoryLabel);
+            }
+          }
+        },
+        plugins: [barLabelsPlugin]
+      });
+    }
+
+    function updateAgingChart() {
+      if (!agingChartInstance) {
+        initAgingChart();
+        return;
+      }
+      const countsObj = getAgingCategoryCounts();
+      agingChartInstance.data.datasets[0].data = VACANCY_CATEGORIES.map(cat => countsObj[cat]);
+      agingChartInstance.update();
+    }
+
+    function openVacancyDetailsModal(category) {
+      const modal = document.getElementById("vacancyDetailsModal");
+      const title = document.getElementById("modalCategoryTitle");
+      const tbody = document.getElementById("vacancyModalTableBody");
+      if (!modal || !tbody) return;
+
+      if (title) title.textContent = `Vacancy Details: ${category}`;
+      tbody.innerHTML = "";
+
+      const filteredRows = data.filter(row => {
+        const rawStatus = row["VACANCY AGING STATUS"] || row.vacancyAgingStatus || row.vacancy_aging_status || "";
+        const status = String(rawStatus).trim();
+        if (!status) return false;
+
+        if (status.toLowerCase() === category.toLowerCase()) return true;
+        if (category === "Long-Term Unfilled" && status.toLowerCase().includes("long")) return true;
+        if (category === "Extended Vacancy" && status.toLowerCase().includes("extended")) return true;
+        if (category === "Aging Vacancy" && status.toLowerCase().includes("aging")) return true;
+        if (category === "Newly Created Item" && status.toLowerCase().includes("newly")) return true;
+        if (category === "New Vacancy" && status.toLowerCase().includes("new") && !status.toLowerCase().includes("newly")) return true;
+        return false;
+      });
+
+      if (filteredRows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding: 32px; text-align: center; color: var(--muted); font-style: italic; font-size: 13px;">No items found in this category.</td></tr>`;
+      } else {
+        filteredRows.forEach(row => {
+          const posCat = row["POSITION CATEGORY"] || row.positionCategory || row.position_category || "";
+          const itemNum = row["ITEM NUMBER"] || row.itemNumber || row.item_number || "";
+          const posTitle = row["POSITION TITLE"] || row.positionTitle || row.position_title || "";
+          const itemStat = row["ITEM_STATUS"] || row.itemStatus || row.item_status || "";
+          const yearCreated = row["YEAR CREATED"] ?? row.yearCreated ?? row.year_created ?? "";
+          const yearsUnfilled = row["YEARS UNFILLED"] ?? row.yearsUnfilled ?? row.years_unfilled ?? "0";
+
+          const tr = document.createElement("tr");
+          tr.style.borderBottom = "1px solid var(--line)";
+          tr.innerHTML = `
+            <td style="padding: 10px 14px; font-weight: 600; color: var(--ink);">${posCat}</td>
+            <td style="padding: 10px 14px; font-family: monospace; font-size: 12px; color: var(--muted);">${itemNum}</td>
+            <td style="padding: 10px 14px; color: var(--ink); font-weight: 500;">${posTitle}</td>
+            <td style="padding: 10px 14px;"><span class="pill" style="font-size: 11px; padding: 2px 8px;">${itemStat}</span></td>
+            <td style="padding: 10px 14px; color: var(--muted); text-align: center;">${yearCreated}</td>
+            <td style="padding: 10px 14px; font-weight: 700; color: var(--ink); text-align: center;">${yearsUnfilled} yrs</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      modal.classList.add("open");
+    }
+
+    function closeVacancyDetailsModal() {
+      const modal = document.getElementById("vacancyDetailsModal");
+      if (modal) modal.classList.remove("open");
+    }
+
+    // Passcode Verification System (400ms Debounce)
+    let passcodeDebounceTimer = null;
+    const currentPasscodeInput = document.getElementById("currentPasscode");
+    const passcodeCheckIcon = document.getElementById("passcodeCheckIcon");
+    const passcodeFeedback = document.getElementById("passcodeFeedback");
+    const secFields = document.querySelectorAll(".sec-credential-field");
+    const secBtn = document.getElementById("saveSecurityBtn");
+
+    if (currentPasscodeInput) {
+      currentPasscodeInput.addEventListener("input", (e) => {
+        const val = e.target.value;
+        clearTimeout(passcodeDebounceTimer);
+
+        if (val.length < 6) {
+          currentPasscodeInput.style.borderColor = "";
+          currentPasscodeInput.style.boxShadow = "";
+          if (passcodeCheckIcon) passcodeCheckIcon.style.display = "none";
+          if (passcodeFeedback) passcodeFeedback.style.display = "none";
+          secFields.forEach(f => f.disabled = true);
+          if (secBtn) {
+            secBtn.disabled = true;
+            secBtn.style.opacity = "0.6";
+            secBtn.style.cursor = "not-allowed";
+          }
+          return;
+        }
+
+        passcodeDebounceTimer = setTimeout(() => {
+          // Mock POST /api/auth/verify-passcode
+          const isValid = val === "123456" || (val.length === 6 && /^\d+$/.test(val));
+
+          if (isValid) {
+            currentPasscodeInput.style.borderColor = "#10b981";
+            currentPasscodeInput.style.boxShadow = "0 0 0 3px rgba(16, 185, 129, 0.2)";
+            if (passcodeCheckIcon) passcodeCheckIcon.style.display = "block";
+            if (passcodeFeedback) {
+              passcodeFeedback.style.display = "block";
+              passcodeFeedback.style.color = "#10b981";
+              passcodeFeedback.textContent = "Passcode verified successfully. Security fields unlocked.";
+            }
+            secFields.forEach(f => f.disabled = false);
+            if (secBtn) {
+              secBtn.disabled = false;
+              secBtn.style.opacity = "1";
+              secBtn.style.cursor = "pointer";
+            }
+          } else {
+            currentPasscodeInput.style.borderColor = "#ef4444";
+            currentPasscodeInput.style.boxShadow = "0 0 0 3px rgba(239, 68, 68, 0.2)";
+            if (passcodeCheckIcon) passcodeCheckIcon.style.display = "none";
+            if (passcodeFeedback) {
+              passcodeFeedback.style.display = "block";
+              passcodeFeedback.style.color = "#ef4444";
+              passcodeFeedback.textContent = "Invalid passcode. Verification failed.";
+            }
+            secFields.forEach(f => f.disabled = true);
+            if (secBtn) {
+              secBtn.disabled = true;
+              secBtn.style.opacity = "0.6";
+              secBtn.style.cursor = "not-allowed";
+            }
+          }
+        }, 400);
+      });
+    }
+
+    document.title = "DepEd Personnel Audit";
+    renderHeader();
+    renderShortcutFilters();
+    renderCompletionStickers();
+    renderRows();
+    renderCompletedRows();
+    initAgingChart();
+  </script>
+</body>
+</html>

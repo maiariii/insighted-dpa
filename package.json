@@ -1,0 +1,18 @@
+{
+  "name": "insighted-dpa",
+  "version": "1.0.0",
+  "description": "Dynamic Personnel Audit KPI Grid Integration",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "test": "node scratch/test_kpi_integration.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.23.0"
+  }
+}
