@@ -1,12 +1,26 @@
-const { Pool } = require("pg");
-const path = require("path");
-const fs = require("fs");
-// Load environment variables from project root and current directory
-require("dotenv").config({ path: path.join(__dirname, "../../.env") });
-require("dotenv").config({ path: path.join(__dirname, "../.env") });
-require("dotenv").config();
+import pg from "pg";
+import path from "path";
+import fs from "fs";
+import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const { Pool } = pg;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from workspace root & app directory
+dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config();
 
 const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.warn("⚠️ Warning: DATABASE_URL is not set in environment.");
+}
 
 const config = {
   connectionString: connectionString || process.env.DATABASE_URL,
@@ -15,7 +29,6 @@ const config = {
   connectionTimeoutMillis: 10000
 };
 
-// Enable SSL for Azure PostgreSQL and production deployments
 if (
   process.env.NODE_ENV === "production" ||
   (connectionString && (connectionString.includes("azure.com") || connectionString.includes("postgres"))) ||
@@ -24,27 +37,17 @@ if (
   config.ssl = { rejectUnauthorized: false };
 }
 
-const pool = new Pool(config);
+export const pool = new Pool(config);
 
-// Intercept unexpected errors on idle PostgreSQL clients to prevent app crashes
-pool.on("error", (err, client) => {
+pool.on("error", (err) => {
   console.error("Unexpected background error on idle PostgreSQL pool client:", err.message);
 });
 
-/**
- * Execute SQL query helper
- */
-const query = (text, params) => pool.query(text, params);
+export const query = (text, params) => pool.query(text, params);
 
-/**
- * Run migration SQL file against the current database pool
- */
-async function runMigration() {
-  // Safe column size upgrades for existing database & decoupling FKs on personnel_audits
-  // Also migrates users/host_hrmos/collaborators division_id from UUID -> VARCHAR(255)
+export async function runMigration() {
   try {
     await pool.query(`
-      -- Drop all FK / unique constraints that depend on division_id type or cross-table refs
       ALTER TABLE users        DROP CONSTRAINT IF EXISTS users_division_id_fkey CASCADE;
       ALTER TABLE host_hrmos   DROP CONSTRAINT IF EXISTS host_hrmos_division_id_fkey CASCADE;
       ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_division_id_fkey CASCADE;
@@ -54,10 +57,8 @@ async function runMigration() {
       ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_user_id_region_id_division_id_fkey CASCADE;
       ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_host_hrmo_id_region_id_division_id_fkey CASCADE;
 
-      -- Drop obsolete host_hrmos table
       DROP TABLE IF EXISTS host_hrmos CASCADE;
 
-      -- Create collaborators table for HRMO invited helpers
       CREATE TABLE IF NOT EXISTS collaborators (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         first_name VARCHAR(255) NOT NULL,
@@ -72,24 +73,20 @@ async function runMigration() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Widen ALL geography columns to VARCHAR(255) (supports full region names)
       ALTER TABLE regions          ALTER COLUMN id          TYPE VARCHAR(255);
       ALTER TABLE division_offices ALTER COLUMN region_id   TYPE VARCHAR(255);
       ALTER TABLE users            ALTER COLUMN region_id   TYPE VARCHAR(255);
       ALTER TABLE users            ALTER COLUMN division_id TYPE VARCHAR(255) USING division_id::text;
 
-      -- Drop FK constraints on personnel_audits (already decoupled)
       ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_region_id_fkey CASCADE;
       ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_division_id_fkey CASCADE;
 
-      -- Widen personnel_audits geography columns
       ALTER TABLE personnel_audits ALTER COLUMN region_id  TYPE VARCHAR(255);
       ALTER TABLE personnel_audits ALTER COLUMN division_id TYPE VARCHAR(255);
 
       ALTER TABLE personnel_audits ADD COLUMN IF NOT EXISTS dpa_month INT NOT NULL DEFAULT 8;
       ALTER TABLE personnel_audits ADD COLUMN IF NOT EXISTS dpa_year  INT NOT NULL DEFAULT 2026;
 
-      -- Backfill plain-text region and division details for sebastian.cheng2@deped.gov.ph
       UPDATE users 
       SET region_id = 'Region V - Bicol', division_id = 'Division of Masbate City' 
       WHERE deped_email = 'sebastian.cheng2@deped.gov.ph';
@@ -116,7 +113,6 @@ async function runMigration() {
     await pool.query(interventionsSql);
   } catch (interventionsErr) {
     console.error("Error executing interventions migration script:", interventionsErr);
-    // Fallback inline table creation
     const createInterventionsTableSQL = `
       CREATE TABLE IF NOT EXISTS other_interventions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -137,7 +133,7 @@ async function runMigration() {
   console.log("✅ Database schema migration executed successfully.");
 }
 
-module.exports = {
+export default {
   pool,
   query,
   runMigration

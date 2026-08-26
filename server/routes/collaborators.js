@@ -29,7 +29,7 @@ function verifyToken(req, res, next) {
  * POST /api/collaborators/invite
  * Invite a collaborator, store in collaborators table, and create user account in users table with default 123456 password.
  */
-router.post("/invite", verifyToken, async (req, res) => {
+router.post(["/invite", "/collaborators/invite", "/api/collaborators/invite", "/insighted-dpa/api/collaborators/invite"], verifyToken, async (req, res) => {
   const { first_name, last_name, position, email } = req.body;
 
   if (!first_name || !last_name || !email) {
@@ -107,7 +107,7 @@ router.post("/invite", verifyToken, async (req, res) => {
  * GET /api/collaborators
  * Fetch list of active collaborators for the host HRMO scope.
  */
-router.get("/", verifyToken, async (req, res) => {
+router.get(["/", "/collaborators", "/api/collaborators", "/insighted-dpa/api/collaborators"], verifyToken, async (req, res) => {
   const hostUserId = req.user.id || req.user.userId;
 
   try {
@@ -144,7 +144,7 @@ router.get("/", verifyToken, async (req, res) => {
  * DELETE /api/collaborators/:id
  * Remove/revoke a collaborator record.
  */
-router.delete("/:id", verifyToken, async (req, res) => {
+router.delete(["/:id", "/collaborators/:id", "/api/collaborators/:id"], verifyToken, async (req, res) => {
   const { id } = req.params;
   try {
     const collabRes = await db.query("SELECT email FROM collaborators WHERE id = $1 LIMIT 1;", [id]);

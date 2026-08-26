@@ -27,6 +27,11 @@
         return;
       }
 
+      if (!email.includes('@')) {
+        if (errEl) { errEl.textContent = 'Invalid DepEd email format.'; errEl.classList.remove('hidden'); }
+        return;
+      }
+
       if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
       if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
 
@@ -78,6 +83,10 @@
         if (errEl) { errEl.textContent = 'Please fill in all required fields.'; errEl.classList.remove('hidden'); }
         return;
       }
+      if (!email.endsWith('@deped.gov.ph') && !email.endsWith('.deped.gov.ph')) {
+        if (errEl) { errEl.textContent = 'Invalid DepEd email domain. Must end with @deped.gov.ph'; errEl.classList.remove('hidden'); }
+        return;
+      }
       if (password !== confirmPass) {
         if (errEl) { errEl.textContent = 'Passwords do not match.'; errEl.classList.remove('hidden'); }
         return;
@@ -99,7 +108,8 @@
           registerSuccess = true;
           if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
         } else {
-          if (errEl) { errEl.textContent = data.error || data.message || 'Registration failed.'; errEl.classList.remove('hidden'); }
+          const errMsg = data.errors ? Object.values(data.errors).flat().join('. ') : (data.error || data.message || 'Registration failed.');
+          if (errEl) { errEl.textContent = errMsg; errEl.classList.remove('hidden'); }
         }
       } catch (err) {
         if (errEl) { errEl.textContent = 'Server connection error. Please try again.'; errEl.classList.remove('hidden'); }

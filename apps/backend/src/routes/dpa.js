@@ -1,13 +1,12 @@
-const express = require("express");
-const router = express.Router();
-const { verifyToken } = require("./auth");
+import express from "express";
+import { verifyToken } from "./auth.js";
+import { query } from "../db/index.js";
+import { validateBody } from "../middleware/validate.js";
+import { InterventionCreateSchema } from "@project/shared";
 
-/**
- * Summary KPI aggregation query (PostgreSQL)
- * Single-pass: returns total_monitored, audited_items, and remaining_items
- * filtered by active session's region and division (plain-text VARCHAR).
- */
-const GET_KPI_METRICS_SQL = `
+const router = express.Router();
+
+export const GET_KPI_METRICS_SQL = `
   SELECT
     COUNT(*)::int AS total_monitored,
     COALESCE(SUM(CASE WHEN item_status = 'Audited' OR position_status = 'FILLED' OR is_audited = true THEN 1 ELSE 0 END), 0)::int AS audited_items,
@@ -18,11 +17,7 @@ const GET_KPI_METRICS_SQL = `
          OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%');
 `;
 
-/**
- * Vacancy Aging Distribution query (PostgreSQL)
- * Groups UNFILLED rows by vacancy_aging_status.
- */
-const GET_AGING_DISTRIBUTION_SQL = `
+export const GET_AGING_DISTRIBUTION_SQL = `
   SELECT
     COALESCE(vacancy_aging_status, 'Unspecified') AS status,
     COUNT(*)::int AS count
@@ -35,11 +30,7 @@ const GET_AGING_DISTRIBUTION_SQL = `
   ORDER BY count DESC;
 `;
 
-/**
- * Reasons Unfilled breakdown query (PostgreSQL)
- * Groups UNFILLED rows by reason_for_vacancy.
- */
-const GET_REASONS_UNFILLED_SQL = `
+export const GET_REASONS_UNFILLED_SQL = `
   SELECT
     COALESCE(reason_for_vacancy, 'Unspecified') AS reason,
     COUNT(*)::int AS count
@@ -52,10 +43,7 @@ const GET_REASONS_UNFILLED_SQL = `
   ORDER BY count DESC;
 `;
 
-/**
- * SQLite alternative SQL query template (for SQLite compatibility / local test environments)
- */
-const GET_KPI_METRICS_SQLITE = `
+export const GET_KPI_METRICS_SQLITE = `
   SELECT
     COUNT(*) AS total_monitored,
     COALESCE(SUM(CASE WHEN item_status = 'Audited' OR position_status = 'FILLED' OR is_audited = 1 THEN 1 ELSE 0 END), 0) AS audited_items,
@@ -67,7 +55,6 @@ const GET_KPI_METRICS_SQLITE = `
 
 /**
  * GET /api/personnel-audit/records
- * Returns personnel audit records filtered by region and division of the user with pagination.
  */
 router.get(["/records", "/personnel-audit/records", "/api/personnel-audit/records", "/insighted-dpa/api/personnel-audit/records"], verifyToken, async (req, res) => {
   try {
@@ -144,7 +131,6 @@ router.get(["/records", "/personnel-audit/records", "/api/personnel-audit/record
         records: result.rows
       });
     } else {
-      // Fallback mock response for dev environment without active DB connection pool
       return res.status(200).json({
         success: true,
         count: 0,
@@ -167,19 +153,14 @@ router.get(["/records", "/personnel-audit/records", "/api/personnel-audit/record
 
 /**
  * GET /api/personnel-audit/kpis
- * Returns live dashboard metrics: KPI summary, vacancy aging distribution,
- * and reasons unfilled — all filtered by the authenticated user's region and division.
- * Secured by verifyToken middleware so region_id and division_id are always from JWT.
  */
 router.get(["/kpis", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/insighted-dpa/api/personnel-audit/kpis"], verifyToken, async (req, res) => {
   try {
     const db = req.app.get("dbClient");
 
-    // Extract identity from verified JWT claims
     const userRegion   = req.user.region_id   || null;
     const userDivision = req.user.division_id  || null;
 
-    // Allow optional override from query params (e.g. for admin views)
     const rawRegion  = req.query.region  && typeof req.query.region  === "string" ? req.query.region.trim()  : null;
     const rawOffice  = req.query.office  && typeof req.query.office  === "string" ? req.query.office.trim()  : null;
 
@@ -189,7 +170,6 @@ router.get(["/kpis", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/ins
     const params = [filterRegion, filterDivision];
 
     if (db && typeof db.query === "function") {
-      // Run all three aggregations in parallel for minimum latency
       const [kpiRes, agingRes, reasonsRes] = await Promise.all([
         db.query(GET_KPI_METRICS_SQL,          params),
         db.query(GET_AGING_DISTRIBUTION_SQL,   params),
@@ -201,24 +181,20 @@ router.get(["/kpis", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/ins
       const audited   = parseInt(kpiRow.audited_items   || 0, 10);
       const remaining = parseInt(kpiRow.remaining_items || 0, 10);
 
-      // Zero-division safeguard for completion percentage
       const completionPercentage = total > 0 ? parseFloat(((audited / total) * 100).toFixed(1)) : 0;
 
       return res.status(200).json({
         status: "success",
         success: true,
-        // Flat top-level keys preserved for backwards compatibility
         totalUnfilled:        total,
         auditedItems:         audited,
         remainingItems:       remaining,
         completionPercentage,
-        // Unified nested dashboard payload
         kpis: {
           totalUnfilled:        total,
           auditedItems:         audited,
           remainingItems:       remaining,
           completionPercentage,
-          // Legacy compatibility aliases
           totalAudited:         total,
           completedAudited:     audited,
           accomplishmentRate:   completionPercentage
@@ -239,7 +215,6 @@ router.get(["/kpis", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/ins
       });
 
     } else {
-      // No DB client attached — return clean zero-state
       return res.status(200).json({
         status: "success",
         success: true,
@@ -267,7 +242,6 @@ router.get(["/kpis", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/ins
 
 /**
  * PUT /api/personnel-audit/:id
- * Updates personnel audit row record by ID
  */
 router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyToken, async (req, res) => {
   try {
@@ -299,7 +273,6 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         "is_audited"
       ];
 
-      // Sanitize payload values: convert empty strings to null for text/dates
       const cleanPayload = {};
       for (const field of allowedFields) {
         if (payload[field] !== undefined) {
@@ -312,7 +285,6 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         }
       }
 
-      // Enforce position_status rules for PostgreSQL constraint chk_incumbent_filled_state
       if (cleanPayload.position_status === "UNFILLED") {
         cleanPayload.name_of_incumbent = null;
         cleanPayload.first_day_of_service = null;
@@ -372,11 +344,8 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
   }
 });
 
-const { query } = require("../db");
-
 /**
  * GET /api/personnel-audit/interventions
- * Fetches interventions recorded by the currently logged-in user
  */
 router.get(["/interventions", "/personnel-audit/interventions", "/api/personnel-audit/interventions", "/insighted-dpa/api/personnel-audit/interventions"], verifyToken, async (req, res) => {
   try {
@@ -397,56 +366,53 @@ router.get(["/interventions", "/personnel-audit/interventions", "/api/personnel-
 
 /**
  * POST /api/personnel-audit/interventions
- * Creates a new intervention entry for the logged-in user
  */
-router.post(["/interventions", "/personnel-audit/interventions", "/api/personnel-audit/interventions", "/insighted-dpa/api/personnel-audit/interventions"], verifyToken, async (req, res) => {
-  const { area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks } = req.body || {};
+router.post(
+  ["/interventions", "/personnel-audit/interventions", "/api/personnel-audit/interventions", "/insighted-dpa/api/personnel-audit/interventions"],
+  verifyToken,
+  validateBody(InterventionCreateSchema),
+  async (req, res) => {
+    const payload = req.validatedBody || req.body || {};
+    const { area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks } = payload;
 
-  if (!area_of_concern || !intervention_to_undertake || !responsible_office || !target_date) {
-    return res.status(400).json({ error: "Area of Concern, Intervention, Responsible Office, and Target Date are required." });
+    try {
+      const userId = req.user.id;
+      const userName = `${req.user.first_name || ''} ${req.user.last_name || 'HRMO'}`.trim() || "Personnel Auditor";
+
+      const outcomesArray = Array.isArray(expected_outcomes)
+        ? expected_outcomes.filter(o => o && String(o).trim() !== "")
+        : [];
+
+      const initialRemarksLog = remarks && String(remarks).trim() !== ""
+        ? [{ text: String(remarks).trim(), by: userName, at: new Date().toISOString() }]
+        : [];
+
+      const db = req.app.get("dbClient");
+      const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
+
+      const insertQuery = `
+        INSERT INTO other_interventions
+          (user_id, area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *;
+      `;
+
+      const result = await queryFn(insertQuery, [
+        userId,
+        String(area_of_concern).trim(),
+        String(intervention_to_undertake).trim(),
+        String(responsible_office).trim(),
+        target_date,
+        JSON.stringify(outcomesArray),
+        JSON.stringify(initialRemarksLog)
+      ]);
+
+      res.status(201).json({ success: true, intervention: result.rows[0] });
+    } catch (err) {
+      console.error("Error saving intervention:", err);
+      res.status(500).json({ error: "Internal database error saving intervention" });
+    }
   }
+);
 
-  try {
-    const userId = req.user.id;
-    const userName = `${req.user.first_name || ''} ${req.user.last_name || 'HRMO'}`.trim() || "Personnel Auditor";
-
-    const outcomesArray = Array.isArray(expected_outcomes)
-      ? expected_outcomes.filter(o => o && String(o).trim() !== "")
-      : [];
-
-    const initialRemarksLog = remarks && String(remarks).trim() !== ""
-      ? [{ text: String(remarks).trim(), by: userName, at: new Date().toISOString() }]
-      : [];
-
-    const db = req.app.get("dbClient");
-    const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
-
-    const insertQuery = `
-      INSERT INTO other_interventions
-        (user_id, area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *;
-    `;
-
-    const result = await queryFn(insertQuery, [
-      userId,
-      String(area_of_concern).trim(),
-      String(intervention_to_undertake).trim(),
-      String(responsible_office).trim(),
-      target_date,
-      JSON.stringify(outcomesArray),
-      JSON.stringify(initialRemarksLog)
-    ]);
-
-    res.status(201).json({ success: true, intervention: result.rows[0] });
-  } catch (err) {
-    console.error("Error saving intervention:", err);
-    res.status(500).json({ error: "Internal database error saving intervention" });
-  }
-});
-
-module.exports = router;
-module.exports.GET_KPI_METRICS_SQL         = GET_KPI_METRICS_SQL;
-module.exports.GET_KPI_METRICS_SQLITE      = GET_KPI_METRICS_SQLITE;
-module.exports.GET_AGING_DISTRIBUTION_SQL  = GET_AGING_DISTRIBUTION_SQL;
-module.exports.GET_REASONS_UNFILLED_SQL    = GET_REASONS_UNFILLED_SQL;
+export default router;

@@ -29,7 +29,7 @@ function verifyToken(req, res, next) {
  * GET /api/auth/regions-divisions
  * Open lookup endpoint for dynamic Region and Division Office options.
  */
-router.get("/regions-divisions", async (req, res) => {
+router.get(["/regions-divisions", "/auth/regions-divisions", "/api/auth/regions-divisions", "/insighted-dpa/api/auth/regions-divisions"], async (req, res) => {
   try {
     const regionsResult = await db.query("SELECT id, name FROM regions ORDER BY name ASC;");
     const divisionsResult = await db.query("SELECT id, region_id, office_name FROM division_offices ORDER BY office_name ASC;");
@@ -39,7 +39,7 @@ router.get("/regions-divisions", async (req, res) => {
     });
   } catch (err) {
     console.error("Failed to load regions-divisions lookup:", err);
-    res.status(500).json({ error: "Failed to fetch regional directories" });
+    res.status(500).json({ success: false, error: "Failed to fetch regional directories", message: err.message });
   }
 });
 
@@ -47,7 +47,7 @@ router.get("/regions-divisions", async (req, res) => {
  * POST /api/auth/register
  * Enterprise registration endpoint with database transaction.
  */
-router.post("/register", async (req, res) => {
+router.post(["/register", "/auth/register", "/api/auth/register", "/insighted-dpa/api/auth/register"], async (req, res) => {
   const client = await db.pool.connect();
   try {
     const {
@@ -169,7 +169,7 @@ router.post("/register", async (req, res) => {
  * POST /api/auth/login
  * User authentication endpoint
  */
-router.post("/login", async (req, res) => {
+router.post(["/login", "/auth/login", "/api/auth/login", "/insighted-dpa/api/auth/login"], async (req, res) => {
   try {
     const { deped_email, password } = req.body;
 
@@ -256,7 +256,7 @@ router.post("/login", async (req, res) => {
  * Profile details for authenticated session.
  * region_id and division_id are plain-text VARCHAR — no relational JOINs needed.
  */
-router.get("/me", verifyToken, async (req, res) => {
+router.get(["/me", "/auth/me", "/api/auth/me", "/insighted-dpa/api/auth/me"], verifyToken, async (req, res) => {
   try {
     const userRes = await db.query(
       `SELECT id,

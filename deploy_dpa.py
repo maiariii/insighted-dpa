@@ -22,7 +22,8 @@ ECOSYSTEM_CONFIG = "ecosystem.dpa.config.cjs"
 
 INCLUDE = [
     "server", "src", "public", "index.html", "package.json", "package-lock.json", 
-    ".env", ECOSYSTEM_CONFIG, "InsightED logo APP.png", "APP.png"
+    ".env", ECOSYSTEM_CONFIG, "InsightED logo APP.png", "APP.png",
+    "deped_building_bg.png", "deped_logo.png", "hrod_logo.png", "bagong_pilipinas.png", "insighted_logo_vertical.png"
 ]
 
 # --- COLORS ---
@@ -171,9 +172,8 @@ def main():
         f"tar -xzf {TAR_FILE} && "
         f"sudo chown -R {USER}:{USER} {SERVER_DIR} && "
         f"touch {SERVER_DIR}/index.html && "
+        "cd server && npm install --omit=dev --legacy-peer-deps 2>&1 | tail -n 5 && cd .. && "
         "export PATH=$PATH:/usr/local/bin:/home/Administrator1/.local/share/pnpm; "
-        "echo '       -> Running production npm install...' && "
-        "npm install --omit=dev --legacy-peer-deps --prefer-offline 2>&1 | tail -n 10 && "
         f"pm2 flush {PM2_NAME} 2>/dev/null || true; "
         f"pm2 delete {PM2_NAME} 2>/dev/null || true; "
         f"pm2 start {ecosystem_remote_path} --update-env && "

@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@project/shared": ["packages/shared/src/index.js"]
+    }
+  }
+}
