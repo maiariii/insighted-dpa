@@ -1238,7 +1238,7 @@ padding-top: 6px;
     <div class="hidden md:flex md:w-1/2 bg-slate-900 text-white p-12 lg:p-16 flex-col justify-between">
       <div>
         <div class="flex items-center space-x-3 mb-6">
-          <img src="/APP.png" alt="InsightED Logo" class="h-12 w-auto object-contain flex-shrink-0" />
+          <img src="APP.png" alt="InsightED Logo" class="h-12 w-auto object-contain flex-shrink-0" />
           <div>
             <div class="tracking-wider text-xs font-semibold text-teal-400 uppercase">Department of Education</div>
             <h1 class="text-3xl font-extrabold tracking-tight">DPA Portal</h1>
@@ -1341,7 +1341,7 @@ padding-top: 6px;
   <div class="app-shell" id="appShell">
     <aside class="sidebar glass" id="sidebar">
       <div class="brand">
-        <img src="/APP.png" alt="InsightED Logo" class="h-10 w-auto object-contain flex-shrink-0 mr-3" style="height: 44px; width: auto; max-width: 46px; object-fit: contain;" />
+        <img src="APP.png" alt="InsightED Logo" class="h-10 w-auto object-contain flex-shrink-0 mr-3" style="height: 44px; width: auto; max-width: 46px; object-fit: contain;" />
         <div class="collapsible-text" style="word-break: break-word; min-width: 0; max-width: 100%;">
           <h1>DepEd Personnel Audit</h1>
           <p>Division vacancy monitoring</p>
@@ -1975,7 +1975,7 @@ padding-top: 6px;
       if (offset) queryParams.set('offset', offset);
 
       try {
-        const res = await fetch(`/api/personnel-audit/records?${queryParams.toString()}`, {
+        const res = await fetch(`api/personnel-audit/records?${queryParams.toString()}`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         if (res.ok) {
@@ -2909,7 +2909,7 @@ padding-top: 6px;
 
       const token = localStorage.getItem('dpa_token') || localStorage.getItem('token');
       try {
-        const res = await fetch('/api/personnel-audit/interventions', {
+        const res = await fetch('api/personnel-audit/interventions', {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
 
@@ -3083,7 +3083,7 @@ padding-top: 6px;
 
       const token = localStorage.getItem('dpa_token') || localStorage.getItem('token');
       try {
-        const res = await fetch('/api/personnel-audit/interventions', {
+        const res = await fetch('api/personnel-audit/interventions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -3609,7 +3609,7 @@ padding-top: 6px;
       const syncErrors = [];
 
       const updatePromises = Object.entries(stagedEdits).map(([rowId, payload]) => {
-        return fetch(`/api/personnel-audit/${encodeURIComponent(rowId)}`, {
+        return fetch(`api/personnel-audit/${encodeURIComponent(rowId)}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -3727,7 +3727,7 @@ padding-top: 6px;
 
     async function loadDirectories() {
       try {
-        const res = await fetch('/api/auth/regions-divisions');
+        const res = await fetch('api/auth/regions-divisions');
         if (res.ok) {
           regionDivData = await res.json();
           const regionSelect = document.getElementById('reg-region');
@@ -3788,7 +3788,7 @@ padding-top: 6px;
       const token = localStorage.getItem('dpa_token');
       if (!token) return;
       try {
-        const res = await fetch('/api/collaborators', {
+        const res = await fetch('api/collaborators', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -3847,7 +3847,7 @@ padding-top: 6px;
       }
 
       try {
-        const res = await fetch('/api/collaborators/invite', {
+        const res = await fetch('api/collaborators/invite', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -3887,7 +3887,7 @@ padding-top: 6px;
       const token = localStorage.getItem('dpa_token');
       if (!token) return;
       try {
-        const res = await fetch(`/api/collaborators/${id}`, {
+        const res = await fetch(`api/collaborators/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -3910,7 +3910,7 @@ padding-top: 6px;
       }
 
       try {
-        const res = await fetch('/api/auth/me', {
+        const res = await fetch('api/auth/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -4008,7 +4008,7 @@ padding-top: 6px;
         const formData = new FormData(signinForm);
         const payload = Object.fromEntries(formData.entries());
         try {
-          const res = await fetch('/api/auth/login', {
+          const res = await fetch('api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -4046,7 +4046,7 @@ padding-top: 6px;
         }
 
         try {
-          const res = await fetch('/api/auth/register', {
+          const res = await fetch('api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
