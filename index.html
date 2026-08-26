@@ -7,6 +7,92 @@
       darkMode: 'class'
     };
   </script>
+  <script>
+    // Auth handlers — defined early so onclick attributes can reference them immediately
+    async function doSignin() {
+      const emailEl = document.querySelector('#signin-form [name="deped_email"]');
+      const passEl = document.querySelector('#signin-form [name="password"]');
+      const errEl = document.getElementById('signin-error');
+      const btn = document.getElementById('signin-btn');
+
+      if (!emailEl || !passEl) return;
+
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+
+      if (!email || !password) {
+        if (errEl) { errEl.textContent = 'Please enter your email and password.'; errEl.classList.remove('hidden'); }
+        return;
+      }
+
+      if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+      if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deped_email: email, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.data && data.data.token) {
+          localStorage.setItem('dpa_token', data.data.token);
+          if (typeof checkAuthAndHydrate === 'function') await checkAuthAndHydrate();
+        } else {
+          if (errEl) { errEl.textContent = data.error || data.message || 'Authentication failed.'; errEl.classList.remove('hidden'); }
+        }
+      } catch (err) {
+        if (errEl) { errEl.textContent = 'Server connection failed. Please try again.'; errEl.classList.remove('hidden'); }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Sign In to Dashboard'; }
+      }
+    }
+
+    async function doSignup() {
+      const errEl = document.getElementById('signup-error');
+      const btn = document.getElementById('signup-btn');
+
+      const firstName = document.querySelector('#signup-form [name="first_name"]')?.value.trim();
+      const lastName = document.querySelector('#signup-form [name="last_name"]')?.value.trim();
+      const position = document.querySelector('#signup-form [name="position"]')?.value.trim();
+      const regionId = document.querySelector('#signup-form [name="region_id"]')?.value.trim();
+      const divisionId = document.querySelector('#signup-form [name="division_id"]')?.value.trim();
+      const email = document.querySelector('#signup-form [name="deped_email"]')?.value.trim();
+      const password = document.querySelector('#signup-form [name="password"]')?.value;
+      const confirmPass = document.getElementById('reg-confirm-password')?.value;
+
+      if (!firstName || !lastName || !position || !regionId || !divisionId || !email || !password) {
+        if (errEl) { errEl.textContent = 'Please fill in all required fields.'; errEl.classList.remove('hidden'); }
+        return;
+      }
+      if (password !== confirmPass) {
+        if (errEl) { errEl.textContent = 'Passwords do not match.'; errEl.classList.remove('hidden'); }
+        return;
+      }
+
+      if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+      if (btn) { btn.disabled = true; btn.textContent = 'Registering…'; }
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ first_name: firstName, last_name: lastName, position, region_id: regionId, division_id: divisionId, deped_email: email, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.data && data.data.token) {
+          localStorage.setItem('dpa_token', data.data.token);
+          if (typeof checkAuthAndHydrate === 'function') await checkAuthAndHydrate();
+        } else {
+          if (errEl) { errEl.textContent = data.error || data.message || 'Registration failed.'; errEl.classList.remove('hidden'); }
+        }
+      } catch (err) {
+        if (errEl) { errEl.textContent = 'Server connection error. Please try again.'; errEl.classList.remove('hidden'); }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Register Account'; }
+      }
+    }
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DepEd Personnel Audit</title>
@@ -1235,61 +1321,114 @@ padding-top: 6px;
   <!-- Gated AGAP-Style Split-Screen Authentication Portal -->
   <div id="gated-auth-container" class="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-900" style="display: flex;">
     <!-- Left Hero Panel -->
-    <div class="hidden md:flex md:w-1/2 bg-slate-900 text-white p-12 lg:p-16 flex-col justify-between">
-      <div>
-        <div class="flex items-center space-x-3 mb-6">
-          <img src="APP.png" alt="InsightED Logo" class="h-12 w-auto object-contain flex-shrink-0" />
-          <div>
-            <div class="tracking-wider text-xs font-semibold text-teal-400 uppercase">Department of Education</div>
-            <h1 class="text-3xl font-extrabold tracking-tight">DPA Portal</h1>
-          </div>
+    <div class="hidden md:flex md:w-1/2 text-white p-8 lg:p-12 flex-col justify-between relative overflow-hidden min-h-screen">
+      <!-- Background Image Layer with Cover & Brightness Boost -->
+      <div class="absolute inset-0 bg-no-repeat pointer-events-none" style="background-image: linear-gradient(to bottom, rgba(15, 23, 42, 0.0) 0%, rgba(15, 23, 42, 0.15) 25%, rgba(15, 23, 42, 0.7) 60%, rgba(15, 23, 42, 0.95) 90%, #0f172a 100%), url('/deped_building_bg.png'); background-position: center top; background-size: cover; filter: brightness(1.2) contrast(1.05);"></div>
+      
+      <!-- Top Logos (DepEd, Bagong Pilipinas, HROD, and InsightED) with Ambient Glow -->
+      <div class="relative z-10 flex items-center space-x-3 mb-4 flex-wrap gap-y-2">
+        <div class="bg-white p-2 rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.45)] border border-white/60 w-14 h-14 flex items-center justify-center flex-shrink-0">
+          <img src="/deped_logo.png" alt="DepEd Logo" class="h-10 w-auto object-contain transform scale-105" />
         </div>
-        <p class="text-slate-400 mt-2 text-sm max-w-sm">Division vacancy monitoring & personnel auditing platform.</p>
-      </div>
-      <div class="space-y-6">
-        <div class="flex gap-4 items-start">
-          <div class="p-3 bg-slate-800 rounded-lg text-teal-400 text-xl">📊</div>
-          <div>
-            <h4 class="font-semibold text-sm">Personnel Auditing</h4>
-            <p class="text-slate-400 text-xs mt-1">Efficient division-level unfilled item tracking and real-time status reporting.</p>
-          </div>
+        <div class="bg-white p-2 rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.45)] border border-white/60 w-14 h-14 flex items-center justify-center flex-shrink-0">
+          <img src="/bagong_pilipinas.png" alt="Bagong Pilipinas Logo" class="h-10 w-auto object-contain" />
         </div>
-        <div class="flex gap-4 items-start">
-          <div class="p-3 bg-slate-800 rounded-lg text-teal-400 text-xl">🛡️</div>
-          <div>
-            <h4 class="font-semibold text-sm">Secure Validation</h4>
-            <p class="text-slate-400 text-xs mt-1">Passcode-protected audit revisions, secure personnel profiles, and logging.</p>
-          </div>
+        <div class="bg-white p-2 rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.45)] border border-white/60 w-14 h-14 flex items-center justify-center flex-shrink-0">
+          <img src="/hrod_logo.png" alt="HROD Logo" class="h-10 w-auto object-contain" />
+        </div>
+        <div class="bg-white p-1 rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.45)] border border-white/60 w-14 h-14 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <img src="/insighted_logo_vertical.png" alt="InsightED Logo" class="w-full h-full object-contain" style="transform: scale(1.8);" />
         </div>
       </div>
-      <div class="text-slate-500 text-xs">© 2026 Bureau of Human Resource and Organizational Development (BHROD)</div>
+
+      <!-- Main Title (Vertically Centered) -->
+      <div class="relative z-10 my-auto py-6">
+        <h1 class="text-4xl lg:text-5xl font-extrabold tracking-tight text-white drop-shadow-2xl leading-tight" style="-webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.4); text-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);">
+          Welcome to<br />
+          <span class="text-white">DepEd Personnel Audit Portal</span>
+        </h1>
+        <div class="w-16 h-1.5 bg-amber-400 rounded-full my-4 shadow-lg"></div>
+      </div>
+
+      <!-- Features & Bottom Banner Box -->
+      <div class="relative z-10 mt-auto">
+        <!-- Features Grid (Horizontal Column Icons & Texts) -->
+        <div class="grid grid-cols-2 gap-6 mb-6">
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center mb-2.5 shadow-inner">
+              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <h4 class="font-bold text-sm text-white tracking-wide">Personnel Auditing</h4>
+            <p class="text-slate-300 text-xs mt-1 leading-relaxed">Efficient division-level unfilled item tracking and real-time status reporting.</p>
+          </div>
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center mb-2.5 shadow-inner">
+              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <h4 class="font-bold text-sm text-white tracking-wide">Secure Validation</h4>
+            <p class="text-slate-300 text-xs mt-1 leading-relaxed">Passcode-protected audit revisions, secure personnel profiles, and logging.</p>
+          </div>
+        </div>
+
+        <!-- Bottom Banner Box -->
+        <div class="p-4 rounded-2xl bg-slate-900/50 backdrop-blur-md border border-slate-700/50 flex items-center gap-3.5 shadow-xl">
+          <div class="p-2.5 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-400 flex-shrink-0">
+            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <div>
+            <h5 class="font-bold text-xs text-white">Official Department of Education Platform</h5>
+            <p class="text-slate-300 text-[11px] mt-0.5">© 2026 Bureau of Human Resource and Organizational Development (BHROD)</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Right Form Panel -->
-    <div class="w-full md:w-1/2 flex items-center justify-center p-6 md:p-8 min-h-screen">
+    <div class="w-full md:w-1/2 flex items-center justify-center p-6 md:p-12 min-h-screen relative bg-gradient-to-br from-slate-50 via-slate-100/70 to-teal-50/40 overflow-hidden">
+      <!-- Decorative Ambient Gradient Glow Blobs -->
+      <div class="absolute top-1/4 right-1/4 w-80 h-80 bg-teal-400/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute bottom-1/4 left-1/4 w-80 h-80 bg-amber-400/10 rounded-full blur-3xl pointer-events-none"></div>
+
       <!-- Sign-in View -->
-      <div id="signin-card" class="w-full max-w-md bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
-        <h2 class="text-2xl font-bold tracking-tight text-slate-950">Welcome Back</h2>
-        <div id="signin-error" class="hidden p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200"></div>
-        <form id="signin-form" class="space-y-4">
+      <div id="signin-card" class="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-xl p-8 lg:p-10 rounded-3xl border border-slate-200/80 shadow-2xl space-y-6">
+        <div>
+          <h2 class="text-3xl font-extrabold tracking-tight text-slate-900">Welcome Back</h2>
+          <p class="text-xs text-slate-500 font-medium mt-1">Sign in with your registered DepEd account credentials.</p>
+        </div>
+        <div id="signin-error" class="hidden p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 font-medium"></div>
+        <form id="signin-form" class="space-y-4" novalidate>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">DepEd Email</label>
-            <input type="email" name="deped_email" required class="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-teal-500 focus:bg-white transition-all" placeholder="user@deped.gov.ph" />
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">DepEd Email</label>
+            <input type="email" name="deped_email" required class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:bg-white transition-all font-medium" placeholder="user@deped.gov.ph" />
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Password</label>
-            <input type="password" name="password" required class="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-teal-500 focus:bg-white transition-all" placeholder="••••••••" />
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Password</label>
+            <input type="password" name="password" required class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:bg-white transition-all font-medium" placeholder="••••••••" />
           </div>
-          <button type="submit" id="signin-btn" class="w-full p-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-lg shadow transition-all">Sign In</button>
+          <button type="button" id="signin-btn" onclick="doSignin()" class="w-full py-3.5 px-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-bold text-sm rounded-xl shadow-lg shadow-teal-600/25 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">Sign In to Dashboard</button>
         </form>
-        <p class="text-xs text-slate-500 text-center">New Auditor? <button id="switch-to-register" type="button" class="text-teal-600 font-semibold hover:underline">Create an account</button></p>
+
+        <div class="relative flex py-1 items-center justify-center">
+          <div class="w-full border-t border-slate-200"></div>
+          <span class="absolute bg-white px-3 text-xs font-bold text-slate-400 uppercase tracking-wider">or</span>
+        </div>
+
+        <button id="switch-to-register" type="button" class="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-bold text-sm rounded-xl border border-slate-200/80 shadow-sm transition-all duration-200 text-center cursor-pointer">Create an Account</button>
       </div>
 
       <!-- Sign-up View (Hidden by default) -->
-      <div id="signup-card" class="hidden w-full max-w-md bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
-        <h2 class="text-2xl font-bold tracking-tight text-slate-950">Create Account</h2>
-        <div id="signup-error" class="hidden p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200"></div>
-        <form id="signup-form" class="space-y-4">
+      <div id="signup-card" class="hidden relative z-10 w-full max-w-md bg-white/95 backdrop-blur-xl p-8 lg:p-10 rounded-3xl border border-slate-200/80 shadow-2xl space-y-6">
+        <div>
+          <h2 class="text-3xl font-extrabold tracking-tight text-slate-900">Create Account</h2>
+          <p class="text-xs text-slate-500 font-medium mt-1">Register your HRMO personnel credentials to request portal access.</p>
+        </div>
+        <form id="signup-form" class="space-y-4" novalidate>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">First Name</label>
@@ -1330,7 +1469,7 @@ padding-top: 6px;
             <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Confirm Password</label>
             <input type="password" id="reg-confirm-password" required class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="••••••••" />
           </div>
-          <button type="submit" id="signup-btn" class="w-full p-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded shadow transition-all">Register Account</button>
+          <button type="button" id="signup-btn" onclick="doSignup()" class="w-full p-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded shadow transition-all">Register Account</button>
         </form>
         <p class="text-xs text-slate-500 text-center">Already registered? <button id="switch-to-signin" type="button" class="text-teal-600 font-semibold hover:underline">Cancel</button></p>
       </div>
@@ -1341,7 +1480,9 @@ padding-top: 6px;
   <div class="app-shell" id="appShell">
     <aside class="sidebar glass" id="sidebar">
       <div class="brand">
-        <img src="APP.png" alt="InsightED Logo" class="h-10 w-auto object-contain flex-shrink-0 mr-3" style="height: 44px; width: auto; max-width: 46px; object-fit: contain;" />
+        <div class="bg-white p-1 rounded-2xl shadow-md border border-slate-200/80 flex items-center justify-center flex-shrink-0 mr-1 overflow-hidden" style="width: 50px; height: 50px;">
+          <img src="/insighted_logo_vertical.png" alt="InsightED Logo" class="w-full h-full object-contain" style="transform: scale(1.8);" />
+        </div>
         <div class="collapsible-text" style="word-break: break-word; min-width: 0; max-width: 100%;">
           <h1>DepEd Personnel Audit</h1>
           <p>Division vacancy monitoring</p>
@@ -2118,6 +2259,13 @@ padding-top: 6px;
     }
 
     function isRowComplete(row) {
+      if (!row) return false;
+      const rowId = row.id || row["ITEM NUMBER"];
+      // Uncommitted changes (dirty/staged rows) must NOT count as completed/audited until saved
+      if (row._isDirty || (typeof stagedEdits !== "undefined" && stagedEdits && rowId && stagedEdits[rowId])) {
+        return false;
+      }
+
       const status = String(row["POSITION STATUS"] || "").toUpperCase();
       if (!status) return false;
 
@@ -2142,29 +2290,70 @@ padding-top: 6px;
       return Math.round((completeRows / categoryRows.length) * 100);
     }
 
-    function renderCompletionStickers() {
-      const categories = ['Teaching', 'Non-Teaching', 'Teaching-Related'];
+    function animateNumberShuffle(el, finalTarget, duration) {
+      if (!el) return;
+      duration = duration || 600;
+      const strVal = String(finalTarget);
+      const match = strVal.match(/([\d,\.]+)/);
+      if (!match) { el.textContent = strVal; return; }
+      const rawNumStr = match[1].replace(/,/g, '');
+      const targetNum = parseFloat(rawNumStr);
+      if (isNaN(targetNum)) { el.textContent = strVal; return; }
+      const isFloat = rawNumStr.includes('.');
+      const decimals = isFloat ? (rawNumStr.split('.')[1] || '').length : 0;
+      const prefix = strVal.substring(0, match.index);
+      const suffix = strVal.substring(match.index + match[0].length);
+      const startTime = performance.now();
+      const shuffleDuration = Math.min(duration * 0.65, 420);
+      if (el._shuffleTimer) cancelAnimationFrame(el._shuffleTimer);
+      function updateFrame(now) {
+        const elapsed = now - startTime;
+        if (elapsed < shuffleDuration) {
+          const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(1, targetNum))));
+          const randomVal = Math.floor(Math.random() * (magnitude * 10 - magnitude) + magnitude);
+          el.textContent = prefix + (isFloat ? randomVal.toFixed(decimals) : randomVal.toLocaleString()) + suffix;
+          el._shuffleTimer = requestAnimationFrame(updateFrame);
+        } else if (elapsed < duration) {
+          const eased = 1 - Math.pow(1 - (elapsed - shuffleDuration) / (duration - shuffleDuration), 2);
+          const currentVal = targetNum * eased;
+          el.textContent = prefix + (isFloat ? currentVal.toFixed(decimals) : Math.round(currentVal).toLocaleString()) + suffix;
+          el._shuffleTimer = requestAnimationFrame(updateFrame);
+        } else {
+          el.textContent = prefix + (isFloat ? targetNum.toFixed(decimals) : targetNum.toLocaleString()) + suffix;
+          delete el._shuffleTimer;
+        }
+      }
+      el._shuffleTimer = requestAnimationFrame(updateFrame);
+    }
 
-      categories.forEach(cat => {
-        const catRows = data.filter(row => row["POSITION CATEGORY"] === cat);
+    function renderCompletionStickers(animate) {
+      const categories = ['Teaching', 'Non-Teaching', 'Teaching-Related'];
+      categories.forEach(function(cat) {
+        const catRows = data.filter(function(row) { return row["POSITION CATEGORY"] === cat; });
         const totalCount = catRows.length;
         const completedCount = catRows.filter(isRowComplete).length;
-        const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+        const rawPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+        let completionPercentage = "0";
+        if (rawPct > 0) {
+          completionPercentage = rawPct < 1 ? parseFloat(rawPct.toFixed(2)).toString() : parseFloat(rawPct.toFixed(1)).toString();
+        }
 
-        const countElement = document.querySelector(`[data-category-count="${cat}"]`);
+        const countElement = document.querySelector('[data-category-count="' + cat + '"]');
         if (countElement) {
-          countElement.textContent = totalCount;
+          if (animate) animateNumberShuffle(countElement, totalCount);
+          else countElement.textContent = totalCount;
         }
 
-        const stickerElement = document.querySelector(`[data-category-sticker="${cat}"]`);
+        const stickerElement = document.querySelector('[data-category-sticker="' + cat + '"]');
         if (stickerElement) {
-          stickerElement.textContent = `${completionPercentage}% completion rate`;
+          if (animate) animateNumberShuffle(stickerElement, completionPercentage + '% completion rate');
+          else stickerElement.textContent = completionPercentage + '% completion rate';
         }
 
-        const progressElement = document.querySelector(`[data-category-progress="${cat}"]`);
+        const progressElement = document.querySelector('[data-category-progress="' + cat + '"]');
         if (progressElement) {
-          progressElement.style.width = `${completionPercentage}%`;
-          if (completionPercentage === 100) {
+          progressElement.style.width = Math.min(100, rawPct) + '%';
+          if (parseFloat(completionPercentage) === 100) {
             progressElement.classList.remove('progress-fill-blue');
             progressElement.classList.add('progress-fill-green');
           } else {
@@ -2386,24 +2575,40 @@ padding-top: 6px;
     }
 
     
-    function updateHomeKPIs() {
+    function updateHomeKPIs(animate = false) {
       const total = data.length;
       const audited = data.filter(row => {
+        const rowId = row.id || row["ITEM NUMBER"];
+        // Uncommitted changes (dirty/staged rows) must NOT count as audited on the home page until committed
+        if (row._isDirty || (typeof stagedEdits !== "undefined" && stagedEdits && rowId && stagedEdits[rowId])) {
+          return false;
+        }
         const status = (row["POSITION STATUS"] || row.position_status || row.item_status || "").toString().toUpperCase();
-        return status === "FILLED" || status === "AUDITED" || row.is_audited === true;
+        return isRowComplete(row) || status === "FILLED" || status === "AUDITED" || row.is_audited === true;
       }).length;
-      const remaining = total - audited;
-      const pct = total > 0 ? parseFloat(((audited / total) * 100).toFixed(1)) : 0;
+      const remaining = Math.max(0, total - audited);
+      const rawPct = total > 0 ? (audited / total) * 100 : 0;
+      let pctStr = "0";
+      if (rawPct > 0) {
+        pctStr = rawPct < 1 ? parseFloat(rawPct.toFixed(2)).toString() : parseFloat(rawPct.toFixed(1)).toString();
+      }
 
       const elTotal = document.getElementById("kpi-total-unfilled");
       const elAudited = document.getElementById("kpi-audited-items");
       const elRemaining = document.getElementById("kpi-remaining-items");
       const elRate = document.getElementById("kpi-completion-rate");
 
-      if (elTotal) elTotal.textContent = total;
-      if (elAudited) elAudited.textContent = audited;
-      if (elRemaining) elRemaining.textContent = remaining;
-      if (elRate) elRate.textContent = `${pct}% audit completion`;
+      if (animate) {
+        if (elTotal) animateNumberShuffle(elTotal, total);
+        if (elAudited) animateNumberShuffle(elAudited, audited);
+        if (elRemaining) animateNumberShuffle(elRemaining, remaining);
+        if (elRate) animateNumberShuffle(elRate, `${pctStr}% audit completion`);
+      } else {
+        if (elTotal) elTotal.textContent = total;
+        if (elAudited) elAudited.textContent = audited;
+        if (elRemaining) elRemaining.textContent = remaining;
+        if (elRate) elRate.textContent = `${pctStr}% audit completion`;
+      }
     }
   
     function renderHeader() {
@@ -2664,7 +2869,7 @@ padding-top: 6px;
       completedCurrentPage = 1;
       document.querySelectorAll('th select[aria-label="Filter POSITION CATEGORY"], .column-filter[data-key="POSITION CATEGORY"]').forEach(select => select.value = "");
       personnelTabs.forEach(button => button.classList.toggle("active", button.dataset.category === category));
-      renderCompletionStickers();
+      renderCompletionStickers(true);
       renderRows();
       renderCompletedRows();
     }
@@ -2823,6 +3028,10 @@ padding-top: 6px;
           subtitle.textContent = copy[target].subtitle;
         }
         if (backToDashboardBtn) backToDashboardBtn.style.display = target === "audit" ? "none" : "inline-flex";
+
+        // Trigger number shuffle animation on all KPI figures when toggling tabs
+        updateHomeKPIs(true);
+        renderCompletionStickers(true);
 
         if (target === "interventions") {
           loadInterventions();
@@ -3759,6 +3968,9 @@ padding-top: 6px;
       const mainApp = document.getElementById('main-dashboard-app');
       if (authContainer) authContainer.style.display = 'none';
       if (mainApp) mainApp.style.display = 'block';
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
 
     function hydrateProfile(user) {
@@ -3998,72 +4210,88 @@ padding-top: 6px;
       });
     }
 
-    const signinForm = document.getElementById('signin-form');
-    const signinError = document.getElementById('signin-error');
-    if (signinForm) {
-      signinForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        signinError.classList.add('hidden');
-        signinError.textContent = '';
-        const formData = new FormData(signinForm);
-        const payload = Object.fromEntries(formData.entries());
-        try {
-          const res = await fetch('api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json();
-          if (res.ok && data.success && data.data && data.data.token) {
-            localStorage.setItem('dpa_token', data.data.token);
-            checkAuthAndHydrate();
-          } else {
-            signinError.textContent = data.error || data.message || 'Authentication failed. Please check credentials.';
-            signinError.classList.remove('hidden');
-          }
-        } catch (err) {
-          signinError.textContent = 'Server connection failed. Please try again.';
+    async function handleSigninSubmit(e) {
+      if (e) e.preventDefault();
+      const signinForm = document.getElementById('signin-form');
+      const signinError = document.getElementById('signin-error');
+      if (!signinForm || !signinError) return false;
+
+      signinError.classList.add('hidden');
+      signinError.textContent = '';
+      const formData = new FormData(signinForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.data && data.data.token) {
+          localStorage.setItem('dpa_token', data.data.token);
+          await checkAuthAndHydrate();
+        } else {
+          signinError.textContent = data.error || data.message || 'Authentication failed. Please check credentials.';
           signinError.classList.remove('hidden');
         }
-      });
+      } catch (err) {
+        console.error('Login request error:', err);
+        signinError.textContent = 'Server connection failed. Please try again.';
+        signinError.classList.remove('hidden');
+      }
+      return false;
+    }
+
+    async function handleSignupSubmit(e) {
+      if (e) e.preventDefault();
+      const signupForm = document.getElementById('signup-form');
+      const signupError = document.getElementById('signup-error');
+      if (!signupForm || !signupError) return false;
+
+      signupError.classList.add('hidden');
+      signupError.textContent = '';
+      const formData = new FormData(signupForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      const confirmPassEl = document.getElementById('reg-confirm-password');
+      const confirmPass = confirmPassEl ? confirmPassEl.value : '';
+      if (payload.password !== confirmPass) {
+        signupError.textContent = 'Passwords do not match.';
+        signupError.classList.remove('hidden');
+        return false;
+      }
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.data && data.data.token) {
+          localStorage.setItem('dpa_token', data.data.token);
+          await checkAuthAndHydrate();
+        } else {
+          signupError.textContent = data.error || data.message || 'Registration failed.';
+          signupError.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error('Registration error:', err);
+        signupError.textContent = 'Server connection error during registration.';
+        signupError.classList.remove('hidden');
+      }
+      return false;
+    }
+
+    const signinForm = document.getElementById('signin-form');
+    if (signinForm) {
+      signinForm.addEventListener('submit', handleSigninSubmit);
     }
 
     const signupForm = document.getElementById('signup-form');
-    const signupError = document.getElementById('signup-error');
     if (signupForm) {
-      signupForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        signupError.classList.add('hidden');
-        signupError.textContent = '';
-        const formData = new FormData(signupForm);
-        const payload = Object.fromEntries(formData.entries());
-
-        const confirmPass = document.getElementById('reg-confirm-password').value;
-        if (payload.password !== confirmPass) {
-          signupError.textContent = 'Passwords do not match.';
-          signupError.classList.remove('hidden');
-          return;
-        }
-
-        try {
-          const res = await fetch('api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json();
-          if (res.ok && data.success && data.data && data.data.token) {
-            localStorage.setItem('dpa_token', data.data.token);
-            checkAuthAndHydrate();
-          } else {
-            signupError.textContent = data.error || data.message || 'Registration failed.';
-            signupError.classList.remove('hidden');
-          }
-        } catch (err) {
-          signupError.textContent = 'Server connection error during registration.';
-          signupError.classList.remove('hidden');
-        }
-      });
+      signupForm.addEventListener('submit', handleSignupSubmit);
     }
 
     const btnSignout = document.getElementById('btn-signout');

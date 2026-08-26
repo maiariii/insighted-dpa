@@ -20,9 +20,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static assets from public directory and project root
-app.use(express.static(path.join(__dirname, "../public")));
-app.use(express.static(path.join(__dirname, "..")));
+// Serve static assets from public directory and project root (no index.html auto-serving)
+app.use(express.static(path.join(__dirname, "../public"), { index: false }));
+app.use(express.static(path.join(__dirname, ".."), { index: false }));
 
 // Mount Auth & DPA API routes
 app.use("/api/auth", authRouter);
@@ -31,6 +31,9 @@ app.use("/api/collaborators", collaboratorsRouter);
 
 // Serve dashboard application at root URL
 app.get("/", (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   res.sendFile(path.join(__dirname, "..", "index.html"));
 });
 

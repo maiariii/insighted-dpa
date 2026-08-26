@@ -170,16 +170,21 @@ def main():
         f"pm2 stop {PM2_NAME} 2>/dev/null || true && "
         f"tar -xzf {TAR_FILE} && "
         f"sudo chown -R {USER}:{USER} {SERVER_DIR} && "
+        f"touch {SERVER_DIR}/index.html && "
         "export PATH=$PATH:/usr/local/bin:/home/Administrator1/.local/share/pnpm; "
         "echo '       -> Running production npm install...' && "
         "npm install --omit=dev --legacy-peer-deps --prefer-offline 2>&1 | tail -n 10 && "
         f"pm2 flush {PM2_NAME} 2>/dev/null || true; "
         f"pm2 delete {PM2_NAME} 2>/dev/null || true; "
         f"pm2 start {ecosystem_remote_path} --update-env && "
+        "sudo nginx -s reload 2>/dev/null || true; "
         f"rm -f {TAR_FILE}"
     )
     ssh_deploy_cmd = ["ssh"] + SSH_OPTS + [ssh_target, remote_setup]
-    run_command(ssh_deploy_cmd, retries=5, timeout=180)
+    res = run_command(ssh_deploy_cmd, retries=5, timeout=180)
+    if res.returncode != 0:
+        error("Remote deployment setup failed after maximum retries!")
+        sys.exit(1)
     success("Remote setup complete.")
 
     # 5. Verify & Auto-Revive
