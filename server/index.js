@@ -26,9 +26,23 @@ app.use(express.static(path.join(__dirname, "..")));
 app.use("/api/auth", authRouter);
 app.use("/api/personnel-audit", dpaRouter);
 
-// Serve dashboard HTML at root URL
+// Serve dashboard application at root URL
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "dpa.html"));
+  res.sendFile(path.join(__dirname, "..", "index.html"));
+});
+
+// Redirect any legacy requests for dpa.html to root API status endpoint
+app.get("/dpa.html", (req, res) => {
+  res.redirect("/");
+});
+
+// 404 Handler for undefined routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: "Not Found",
+    message: `Cannot ${req.method} ${req.url}`
+  });
 });
 
 // Global Error Handler

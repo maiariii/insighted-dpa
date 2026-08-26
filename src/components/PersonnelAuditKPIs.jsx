@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import styles from "./PersonnelAuditKPIs.module.css";
 
+// In-memory request memoization & TTL cache
+const kpiCache = { data: null, timestamp: 0, key: "" };
+const CACHE_TTL = 30000; // 30 seconds
+
 /**
  * PersonnelAuditKPIs Component
  * 
@@ -24,7 +28,16 @@ export default function PersonnelAuditKPIs({
 
   useEffect(() => {
     let isMounted = true;
-    const fetchKpis = async () => {
+    const fetchKpis = async (forceRefetch = false) => {
+      const cacheKey = `${region}|${office}|${apiEndpoint}`;
+      const now = Date.now();
+
+      if (!forceRefetch && kpiCache.data && kpiCache.key === cacheKey && (now - kpiCache.timestamp < CACHE_TTL)) {
+        setKpiData(kpiCache.data);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -37,8 +50,12 @@ export default function PersonnelAuditKPIs({
 
         const json = await response.json();
         if (isMounted) {
-          if (json.success && json.data) {
-            setKpiData(json.data);
+          const payload = json.data || json;
+          if (json.success !== false) {
+            setKpiData(payload);
+            kpiCache.data = payload;
+            kpiCache.timestamp = now;
+            kpiCache.key = cacheKey;
           } else {
             throw new Error(json.message || "Invalid API response structure");
           }
@@ -49,11 +66,10 @@ export default function PersonnelAuditKPIs({
           setError(err.message || "Data temporarily unavailable");
           // Fallback safe state
           setKpiData({
-            totalAudited: 0,
-            completedAudited: 0,
-            accomplishmentRate: 0,
-            longTermUnfilled: 0,
-            newVacancies: 0
+            totalUnfilled: 0,
+            auditedItems: 0,
+            remainingItems: 0,
+            completionPercentage: 0
           });
         }
       } finally {
@@ -70,11 +86,11 @@ export default function PersonnelAuditKPIs({
     };
   }, [region, office, apiEndpoint]);
 
-  // Loading skeleton state
+  // Loading skeleton state (3 cards)
   if (loading && !kpiData) {
     return (
       <div className={styles.kpiGrid} data-testid="kpi-loading-skeleton">
-        {[1, 2, 3, 4].map((idx) => (
+        {[1, 2, 3].map((idx) => (
           <article key={idx} className={`${styles.card} ${styles.kpi}`}>
             <div className={`${styles.skeletonBox} ${styles.skeletonLabel}`} />
             <div className={`${styles.skeletonBox} ${styles.skeletonValue}`} />
@@ -85,16 +101,14 @@ export default function PersonnelAuditKPIs({
     );
   }
 
-  // Extract counts with safe nullish coalescing
-  const totalAudited = kpiData?.totalAudited ?? 0;
-  const completedAudited = kpiData?.completedAudited ?? 0;
-  const longTermUnfilled = kpiData?.longTermUnfilled ?? 0;
-  const newVacancies = kpiData?.newVacancies ?? 0;
+  // Extract metrics with nullish coalescing safeguards
+  const totalUnfilled = kpiData?.totalUnfilled ?? kpiData?.totalAudited ?? 0;
+  const auditedItems = kpiData?.auditedItems ?? kpiData?.completedAudited ?? 0;
+  const remainingItems = kpiData?.remainingItems ?? Math.max(0, totalUnfilled - auditedItems);
 
-  // Zero division safeguard calculation
-  const accomplishmentRate = kpiData?.accomplishmentRate !== undefined
-    ? kpiData.accomplishmentRate
-    : (totalAudited > 0 ? Math.round((completedAudited / totalAudited) * 100) : 0);
+  const completionPercentage = kpiData?.completionPercentage !== undefined
+    ? kpiData.completionPercentage
+    : (totalUnfilled > 0 ? parseFloat(((auditedItems / totalUnfilled) * 100).toFixed(1)) : 0);
 
   return (
     <div className={styles.kpiGrid}>
@@ -107,31 +121,22 @@ export default function PersonnelAuditKPIs({
       {/* Card 1: Total unfilled items */}
       <article className={`${styles.card} ${styles.kpi}`}>
         <label>Total unfilled items</label>
-        <strong>{totalAudited}</strong>
-        <span>
-          {error ? "Data temporarily unavailable" : `Filtered to ${region} • ${office}`}
-        </span>
+        <strong>{totalUnfilled}</strong>
+        <span>Live unfilled items monitored</span>
       </article>
 
-      {/* Card 2: Completed audit rows */}
+      {/* Card 2: Audited Items */}
       <article className={`${styles.card} ${styles.kpi}`}>
-        <label>Completed audit rows</label>
-        <strong>{completedAudited}</strong>
-        <span>{`${accomplishmentRate}% accomplishment rate`}</span>
+        <label>Audited Items</label>
+        <strong>{auditedItems}</strong>
+        <span>{`${completionPercentage}% audit completion`}</span>
       </article>
 
-      {/* Card 3: Long-term unfilled */}
+      {/* Card 3: Remaining Items to Audit */}
       <article className={`${styles.card} ${styles.kpi}`}>
-        <label>Long-term unfilled</label>
-        <strong>{longTermUnfilled}</strong>
+        <label>Remaining Items to Audit</label>
+        <strong>{remainingItems}</strong>
         <span>Requires priority review</span>
-      </article>
-
-      {/* Card 4: New vacancies */}
-      <article className={`${styles.card} ${styles.kpi}`}>
-        <label>New vacancies</label>
-        <strong>{newVacancies}</strong>
-        <span>Recently tagged for action</span>
       </article>
     </div>
   );

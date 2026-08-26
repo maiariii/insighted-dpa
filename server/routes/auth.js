@@ -26,6 +26,24 @@ function verifyToken(req, res, next) {
 }
 
 /**
+ * GET /api/auth/regions-divisions
+ * Open lookup endpoint for dynamic Region and Division Office options.
+ */
+router.get("/regions-divisions", async (req, res) => {
+  try {
+    const regionsResult = await db.query("SELECT id, name FROM regions ORDER BY name ASC;");
+    const divisionsResult = await db.query("SELECT id, region_id, office_name FROM division_offices ORDER BY office_name ASC;");
+    res.json({
+      regions: regionsResult.rows,
+      divisions: divisionsResult.rows
+    });
+  } catch (err) {
+    console.error("Failed to load regions-divisions lookup:", err);
+    res.status(500).json({ error: "Failed to fetch regional directories" });
+  }
+});
+
+/**
  * POST /api/auth/register
  * Enterprise registration endpoint with database transaction.
  */
@@ -40,16 +58,18 @@ router.post("/register", async (req, res) => {
       last_name,
       deped_email,
       password,
-      passcode,
-      role = "COLLABORATOR",
+      passcode = "123456",
+      role = "HRMO",
       host_hrmo_id
     } = req.body;
 
+    const finalPasscode = (passcode && passcode.trim()) ? passcode.trim() : "123456";
+
     // 1. Mandatory Input Validation
-    if (!region_id || !division_id || !position || !first_name || !last_name || !deped_email || !password || !passcode) {
+    if (!region_id || !division_id || !position || !first_name || !last_name || !deped_email || !password) {
       return res.status(400).json({
         success: false,
-        error: "Missing required registration fields. All parameters (region_id, division_id, position, first_name, last_name, deped_email, password, passcode) are required."
+        error: "Missing required registration fields. All parameters (region_id, division_id, position, first_name, last_name, deped_email, password) are required."
       });
     }
 
@@ -126,7 +146,7 @@ router.post("/register", async (req, res) => {
       last_name.trim(),
       cleanEmail,
       password_hash,
-      passcode.trim(),
+      finalPasscode,
       normalizedRole
     ]);
     const user = userRes.rows[0];

@@ -44,22 +44,20 @@ async function runMigration() {
   const migrationPath = path.join(__dirname, "migrations/001_create_relational_auth_schema.sql");
   const sql = fs.readFileSync(migrationPath, "utf8");
   await pool.query(sql);
-  console.log("✅ Database schema migration executed successfully.");
-}
 
-/**
- * Run seed SQL file against the current database pool
- */
-async function runSeed() {
-  const seedPath = path.join(__dirname, "seed.sql");
-  const sql = fs.readFileSync(seedPath, "utf8");
-  await pool.query(sql);
-  console.log("✅ Database seed executed successfully.");
+  try {
+    const indexMigrationPath = path.join(__dirname, "migrations/002_add_performance_indexes.sql");
+    const indexSql = fs.readFileSync(indexMigrationPath, "utf8");
+    await pool.query(indexSql);
+  } catch (indexErr) {
+    // Non-blocking if tables are created later
+  }
+
+  console.log("✅ Database schema migration executed successfully.");
 }
 
 module.exports = {
   pool,
   query,
-  runMigration,
-  runSeed
+  runMigration
 };

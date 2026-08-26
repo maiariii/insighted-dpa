@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://cdn.tailwindcss.com"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DepEd Personnel Audit</title>
@@ -389,7 +390,7 @@
     body.dark .btn.secondary { background: rgba(15, 23, 42, 0.52); }
 
     .grid { display: grid; gap: 16px; }
-    .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .content-grid { grid-template-columns: 1.1fr 0.9fr; }
     .settings-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 #home .kpi-grid {
@@ -716,6 +717,42 @@ padding-top: 6px;
     .search {
       width: 100%;
       justify-self: end;
+    }
+
+    /* Save Changes Button States */
+    .btn-save-disabled {
+      background-color: #cbd5e1 !important; /* solid, clean slate-300 */
+      color: #94a3b8 !important; /* slate-400 */
+      cursor: not-allowed !important;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      transition: all 0.2s ease-in-out;
+      opacity: 0.7;
+      white-space: nowrap;
+    }
+
+    .btn-save-active {
+      background-color: #10b981 !important; /* solid emerald-500 */
+      color: #ffffff !important;
+      cursor: pointer !important;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid #059669;
+      box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2), 0 2px 4px -2px rgba(16, 185, 129, 0.1);
+      transition: all 0.2s ease-in-out;
+      white-space: nowrap;
+    }
+
+    .btn-save-active:hover {
+      background-color: #059669 !important; /* emerald-600 */
+      transform: translateY(-1px);
+    }
+
+    .btn-save-active:active {
+      transform: translateY(0);
     }
 
     /* Light mode table background styling */
@@ -1157,6 +1194,108 @@ padding-top: 6px;
   </style>
 </head>
 <body>
+
+  <!-- Gated AGAP-Style Split-Screen Authentication Portal -->
+  <div id="gated-auth-container" class="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-900" style="display: flex;">
+    <!-- Left Hero Panel -->
+    <div class="hidden md:flex md:w-1/2 bg-slate-900 text-white p-12 lg:p-16 flex-col justify-between">
+      <div>
+        <div class="tracking-wider text-xs font-semibold text-teal-400 uppercase">Department of Education</div>
+        <h1 class="text-4xl font-extrabold tracking-tight mt-2">DPA Portal</h1>
+        <p class="text-slate-400 mt-2 text-sm max-w-sm">Division vacancy monitoring & personnel auditing platform.</p>
+      </div>
+      <div class="space-y-6">
+        <div class="flex gap-4 items-start">
+          <div class="p-3 bg-slate-800 rounded-lg text-teal-400 text-xl">📊</div>
+          <div>
+            <h4 class="font-semibold text-sm">Personnel Auditing</h4>
+            <p class="text-slate-400 text-xs mt-1">Efficient division-level unfilled item tracking and real-time status reporting.</p>
+          </div>
+        </div>
+        <div class="flex gap-4 items-start">
+          <div class="p-3 bg-slate-800 rounded-lg text-teal-400 text-xl">🛡️</div>
+          <div>
+            <h4 class="font-semibold text-sm">Secure Validation</h4>
+            <p class="text-slate-400 text-xs mt-1">Passcode-protected audit revisions, secure personnel profiles, and logging.</p>
+          </div>
+        </div>
+      </div>
+      <div class="text-slate-500 text-xs">© 2026 Bureau of Human Resource and Organizational Development (BHROD)</div>
+    </div>
+
+    <!-- Right Form Panel -->
+    <div class="w-full md:w-1/2 flex items-center justify-center p-6 md:p-8 min-h-screen">
+      <!-- Sign-in View -->
+      <div id="signin-card" class="w-full max-w-md bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+        <h2 class="text-2xl font-bold tracking-tight text-slate-950">Welcome Back</h2>
+        <div id="signin-error" class="hidden p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200"></div>
+        <form id="signin-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">DepEd Email</label>
+            <input type="email" name="deped_email" required class="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-teal-500 focus:bg-white transition-all" placeholder="user@deped.gov.ph" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">Password</label>
+            <input type="password" name="password" required class="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-teal-500 focus:bg-white transition-all" placeholder="••••••••" />
+          </div>
+          <button type="submit" id="signin-btn" class="w-full p-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded-lg shadow transition-all">Sign In</button>
+        </form>
+        <p class="text-xs text-slate-500 text-center">New Auditor? <button id="switch-to-register" type="button" class="text-teal-600 font-semibold hover:underline">Create an account</button></p>
+      </div>
+
+      <!-- Sign-up View (Hidden by default) -->
+      <div id="signup-card" class="hidden w-full max-w-md bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+        <h2 class="text-2xl font-bold tracking-tight text-slate-950">Create Account</h2>
+        <div id="signup-error" class="hidden p-3 bg-red-50 text-red-700 text-xs rounded border border-red-200"></div>
+        <form id="signup-form" class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">First Name</label>
+              <input type="text" name="first_name" required class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="First" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Last Name</label>
+              <input type="text" name="last_name" required class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Last" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Position / Title</label>
+            <input type="text" name="position" required class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="HRMO II / Auditor" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Region</label>
+              <select id="reg-region" name="region_id" required class="w-full p-2 border border-slate-200 bg-slate-50 rounded text-sm">
+                <option value="">Select Region</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Division</label>
+              <select id="reg-division" name="division_id" required disabled class="w-full p-2 border border-slate-200 bg-slate-50 rounded text-sm">
+                <option value="">Select Division</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">DepEd Email</label>
+            <input type="email" name="deped_email" required class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="name@deped.gov.ph" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Password</label>
+            <input type="password" name="password" required class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="••••••••" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-600 uppercase mb-1">Confirm Password</label>
+            <input type="password" id="reg-confirm-password" required class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="••••••••" />
+          </div>
+          <button type="submit" id="signup-btn" class="w-full p-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm rounded shadow transition-all">Register Account</button>
+        </form>
+        <p class="text-xs text-slate-500 text-center">Already registered? <button id="switch-to-signin" type="button" class="text-teal-600 font-semibold hover:underline">Cancel</button></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="main-dashboard-app" style="display: none;">
   <div class="app-shell" id="appShell">
     <aside class="sidebar glass" id="sidebar">
       <div class="brand">
@@ -1207,23 +1346,18 @@ padding-top: 6px;
         <div class="grid kpi-grid">
           <article class="card kpi">
             <label>Total unfilled items</label>
-<strong>12</strong>
-            <span>Filtered to NCR • Regional Office - Proper</span>
+            <strong id="kpi-total-unfilled">0</strong>
+            <span>Live unfilled items monitored</span>
           </article>
           <article class="card kpi">
-            <label>Completed audit rows</label>
-<strong>7</strong>
-<span>58% accomplishment rate</span>
+            <label>Audited Items</label>
+            <strong id="kpi-audited-items">0</strong>
+            <span id="kpi-completion-rate">0% audit completion</span>
           </article>
           <article class="card kpi">
-            <label>Long-term unfilled</label>
-            <strong>3</strong>
+            <label>Remaining Items to Audit</label>
+            <strong id="kpi-remaining-items">0</strong>
             <span>Requires priority review</span>
-          </article>
-          <article class="card kpi">
-            <label>New vacancies</label>
-<strong>3</strong>
-            <span>Recently tagged for action</span>
           </article>
         </div>
 
@@ -1260,13 +1394,22 @@ padding-top: 6px;
 
       <section id="audit" class="audit-panel">
         <article class="card">
-          <div class="audit-header">
+          <div class="audit-header mb-6 pb-2">
             <div>
-              <h3>Personnel Audit Main Panel</h3>
-              <p>Exact schema columns from the brief. Item Number and Position Title stay frozen during horizontal scroll.</p>
+              <h3 class="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-1">Personnel Audit Main Panel</h3>
+              <p class="text-sm font-normal text-slate-500 dark:text-slate-400 leading-relaxed">Exact schema columns from the brief. Item Number and Position Title stay frozen during horizontal scroll.</p>
             </div>
-            <div class="audit-header-actions">
-              <input id="globalSearch" class="field search" placeholder="Search table..." />
+            <div class="audit-header-actions" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <input id="globalSearch" class="field search" placeholder="Search table..." style="max-width: 220px;" />
+              <button id="btn-save-changes"
+                      class="btn-save-disabled"
+                      onclick="saveAllChanges()"
+                      disabled>
+                <span id="btn-save-text">Save Changes</span>
+              </button>
+              <div id="staged-edits-badge" class="hidden" style="display: none; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; background-color: #fffbeb; border: 1px solid #fde68a; color: #92400e; font-size: 12px; font-weight: 600;">
+                <span id="staged-edits-count">0</span> pending changes
+              </div>
               <button class="btn" style="white-space: nowrap;">Export summary</button>
             </div>
           </div>
@@ -1332,10 +1475,10 @@ padding-top: 6px;
 
         <!-- Completed Audit Rows Table Card -->
         <article class="card" style="margin-top: 24px;">
-          <div class="audit-header">
+          <div class="audit-header mb-6 pb-2">
             <div>
-              <h3>Completed Personnel Audit Records</h3>
-              <p>Dedicated table displaying all audit items with fully completed required input fields.</p>
+              <h3 class="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-1">Completed Personnel Audit Records</h3>
+              <p class="text-sm font-normal text-slate-500 dark:text-slate-400 leading-relaxed">Dedicated table displaying all audit items with fully completed required input fields.</p>
             </div>
             <span class="pill green" id="completedCountBadge">0 Completed Rows</span>
           </div>
@@ -1410,10 +1553,9 @@ padding-top: 6px;
           </article>
         </div>
       </section>
-
-      <footer>Prototype only • Data shown is mock data based on the uploaded DepEd Personnel Audit sample.</footer>
     </main>
   </div>
+  </div><!-- /#main-dashboard-app -->
 
   <div class="modal-backdrop" id="rowModal" role="dialog" aria-modal="true" aria-labelledby="rowModalTitle">
     <div class="modal">
@@ -1552,248 +1694,7 @@ padding-top: 6px;
       "STATUS OF VACANCY": ["", ...STATUSES_OF_VACANCY]
     };
 
-    const data = [
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Non-Teaching",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-ATY3-30001-2021",
-        "POSITION TITLE": "Attorney III",
-        "SG": 21,
-        "YEAR CREATED": 2021,
-        "YEARS UNFILLED": 1,
-        "VACANCY AGING STATUS": "Aging Vacancy",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2023-01-15",
-        "REASON FOR VACANCY": "Resignation",
-        "STATUS OF VACANCY": "Hard to Fill Position - Attorney Items",
-        "OTHER REMARKS": "Needs legal pool review",
-        "TENTATIVE DATE TO FILL-UP": "2026-09-30"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Non-Teaching",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-LEA2-30027-2015",
-        "POSITION TITLE": "Legal Assistant II",
-        "SG": 12,
-        "YEAR CREATED": 2015,
-        "YEARS UNFILLED": 0,
-        "VACANCY AGING STATUS": "New Vacancy",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2026-01-10",
-        "REASON FOR VACANCY": "Promotion",
-        "STATUS OF VACANCY": "On-going Hiring Process - Publication Stage",
-        "OTHER REMARKS": "",
-        "TENTATIVE DATE TO FILL-UP": "2026-10-01"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Non-Teaching",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-ADA4-84-2004",
-        "POSITION TITLE": "Administrative Aide IV",
-        "SG": 4,
-        "YEAR CREATED": 2004,
-        "YEARS UNFILLED": 3,
-        "VACANCY AGING STATUS": "Long-Term Unfilled",
-        "POSITION STATUS": "FILLED",
-        "NAME OF INCUMBENT": "JUAN DELA CRUZ",
-        "FIRST DAY OF SERVICE": "2024-03-01",
-        "DATE OF VACANCY": "",
-        "REASON FOR VACANCY": "Others",
-        "STATUS OF VACANCY": "Positions not consistent in the ECP",
-        "OTHER REMARKS": "Temporarily detailed staff assigned",
-        "TENTATIVE DATE TO FILL-UP": "2026-10-15"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Non-Teaching",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-ADA3-30228-2004",
-        "POSITION TITLE": "Administrative Aide III",
-        "SG": 3,
-        "YEAR CREATED": 2004,
-        "YEARS UNFILLED": 2,
-        "VACANCY AGING STATUS": "Extended Vacancy",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2024-05-12",
-        "REASON FOR VACANCY": "End of Term",
-        "STATUS OF VACANCY": "On-going Hiring Process - Comparative Assessment Stage",
-        "OTHER REMARKS": "",
-        "TENTATIVE DATE TO FILL-UP": "2026-11-05"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Teaching-Related",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-EPSVR-30140-2010",
-        "POSITION TITLE": "Education Program Supervisor",
-        "SG": 22,
-        "YEAR CREATED": 2010,
-        "YEARS UNFILLED": 2,
-        "VACANCY AGING STATUS": "Extended Vacancy",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2024-06-01",
-        "REASON FOR VACANCY": "Reclassification",
-        "STATUS OF VACANCY": "On-going Hiring Process - Deliberation Stage",
-        "OTHER REMARKS": "Needs subject-area validation",
-        "TENTATIVE DATE TO FILL-UP": "2026-11-05"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Non-Teaching",
-        "ITEM_STATUS": "CTI",
-        "ITEM NUMBER": "OSEC-DECSB-ADA3-30229-2004",
-        "POSITION TITLE": "Administrative Aide III",
-        "SG": 3,
-        "YEAR CREATED": 2004,
-        "YEARS UNFILLED": 4,
-        "VACANCY AGING STATUS": "Long-Term Unfilled",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2022-02-14",
-        "REASON FOR VACANCY": "Dropping from the Rolls",
-        "STATUS OF VACANCY": "CTI Item - Request for Abolition",
-        "OTHER REMARKS": "",
-        "TENTATIVE DATE TO FILL-UP": ""
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Teaching-Related",
-        "ITEM_STATUS": "CTI",
-        "ITEM NUMBER": "OSEC-DECSB-EPSVR-30163-2010",
-        "POSITION TITLE": "Education Program Supervisor",
-        "SG": 22,
-        "YEAR CREATED": 2010,
-        "YEARS UNFILLED": 0,
-        "VACANCY AGING STATUS": "New Vacancy",
-        "POSITION STATUS": "FILLED",
-        "NAME OF INCUMBENT": "MARIA CLARA ROSALES",
-        "FIRST DAY OF SERVICE": "2025-01-15",
-        "DATE OF VACANCY": "",
-        "REASON FOR VACANCY": "Promotion",
-        "STATUS OF VACANCY": "Awaiting CSC Attestation",
-        "OTHER REMARKS": "",
-        "TENTATIVE DATE TO FILL-UP": "2026-09-01"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Non-Teaching",
-        "ITEM_STATUS": "CTI",
-        "ITEM NUMBER": "OSEC-DECSB-HEPO3-30011-2015",
-        "POSITION TITLE": "Health Education and Promotion Officer III",
-        "SG": 18,
-        "YEAR CREATED": 2015,
-        "YEARS UNFILLED": 4,
-        "VACANCY AGING STATUS": "Long-Term Unfilled",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2022-08-30",
-        "REASON FOR VACANCY": "Resignation",
-        "STATUS OF VACANCY": "CTI Item - Request for Filling-Up",
-        "OTHER REMARKS": "",
-        "TENTATIVE DATE TO FILL-UP": ""
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Teaching",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-TCH3-30001-2024",
-        "POSITION TITLE": "Teacher III",
-        "SG": 15,
-        "YEAR CREATED": 2024,
-        "YEARS UNFILLED": 1,
-        "VACANCY AGING STATUS": "Aging Vacancy",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2025-03-10",
-        "REASON FOR VACANCY": "Promotion",
-        "STATUS OF VACANCY": "On-going Hiring Process - CAR/CAR-RQA Posting Period",
-        "OTHER REMARKS": "",
-        "TENTATIVE DATE TO FILL-UP": "2026-10-15"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Teaching",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-TCH1-30012-2022",
-        "POSITION TITLE": "Teacher I",
-        "SG": 11,
-        "YEAR CREATED": 2022,
-        "YEARS UNFILLED": 2,
-        "VACANCY AGING STATUS": "Extended Vacancy",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2024-01-20",
-        "REASON FOR VACANCY": "Resignation",
-        "STATUS OF VACANCY": "On-going Hiring Process - Selection & Appointment Stage",
-        "OTHER REMARKS": "Awaiting school-level posting confirmation",
-        "TENTATIVE DATE TO FILL-UP": "2026-10-30"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Teaching",
-        "ITEM_STATUS": "CTI",
-        "ITEM NUMBER": "OSEC-DECSB-MTCHR1-30008-2020",
-        "POSITION TITLE": "Master Teacher I",
-        "SG": 18,
-        "YEAR CREATED": 2020,
-        "YEARS UNFILLED": 3,
-        "VACANCY AGING STATUS": "Long-Term Unfilled",
-        "POSITION STATUS": "UNFILLED",
-        "NAME OF INCUMBENT": "",
-        "FIRST DAY OF SERVICE": "",
-        "DATE OF VACANCY": "2023-09-01",
-        "REASON FOR VACANCY": "Death",
-        "STATUS OF VACANCY": "Hard to Fill Position - Lack of qualified applicants based on QS",
-        "OTHER REMARKS": "Requires ranking and qualification validation",
-        "TENTATIVE DATE TO FILL-UP": "2026-11-20"
-      },
-      {
-        "REGION": "National Capital Region (NCR)",
-        "DIVISION": "Regional Office - Proper",
-        "POSITION CATEGORY": "Teaching",
-        "ITEM_STATUS": "Regular",
-        "ITEM NUMBER": "OSEC-DECSB-SPEDT1-30004-2023",
-        "POSITION TITLE": "Special Education Teacher I",
-        "SG": 14,
-        "YEAR CREATED": 2023,
-        "YEARS UNFILLED": 0,
-        "VACANCY AGING STATUS": "New Vacancy",
-        "POSITION STATUS": "FILLED",
-        "NAME OF INCUMBENT": "BENJAMIN SILVA",
-        "FIRST DAY OF SERVICE": "2026-02-01",
-        "DATE OF VACANCY": "",
-        "REASON FOR VACANCY": "Others",
-        "STATUS OF VACANCY": "Awaiting CSC Attestation",
-        "OTHER REMARKS": "For SPED specialization review",
-        "TENTATIVE DATE TO FILL-UP": "2026-09-15"
-      }
-    ];
+    let data = [];
 
     let sortKey = "";
     let sortDirection = 1;
@@ -1969,25 +1870,21 @@ padding-top: 6px;
     function handlePositionStatusChange(dataIndex, newStatus) {
       const row = data[dataIndex];
       if (!row) return;
+      const rowId = row.id || row["ITEM NUMBER"];
 
-      row["POSITION STATUS"] = newStatus;
+      stageRowEdit(rowId, "POSITION STATUS", newStatus);
 
       // Reset dependent fields depending on FILLED or UNFILLED status
       if (newStatus === "UNFILLED") {
-        row["NAME OF INCUMBENT"] = "";
-        row["FIRST DAY OF SERVICE"] = "";
+        stageRowEdit(rowId, "NAME OF INCUMBENT", "");
+        stageRowEdit(rowId, "FIRST DAY OF SERVICE", "");
       } else if (newStatus === "FILLED") {
-        row["REASON FOR VACANCY"] = "";
-        row["STATUS OF VACANCY"] = "";
-        row["TENTATIVE DATE TO FILL-UP"] = "";
-        row["DATE OF VACANCY"] = "";
-        row["OTHER REMARKS"] = "";
+        stageRowEdit(rowId, "REASON FOR VACANCY", "");
+        stageRowEdit(rowId, "STATUS OF VACANCY", "");
+        stageRowEdit(rowId, "TENTATIVE DATE TO FILL-UP", "");
+        stageRowEdit(rowId, "DATE OF VACANCY", "");
+        stageRowEdit(rowId, "OTHER REMARKS", "");
       }
-
-      renderCompletionStickers();
-      renderRows();
-      renderCompletedRows();
-      if (typeof updateAgingChart === "function") updateAgingChart();
     }
 
     function updateRowField(dataIndex, col, newValue) {
@@ -2002,11 +1899,11 @@ padding-top: 6px;
         newValue = String(newValue).toUpperCase();
       }
 
-      data[dataIndex][col] = newValue;
-      renderCompletionStickers();
-      renderRows();
-      renderCompletedRows();
-      if (typeof updateAgingChart === "function") updateAgingChart();
+      const row = data[dataIndex];
+      if (!row) return;
+      const rowId = row.id || row["ITEM NUMBER"];
+
+      stageRowEdit(rowId, col, newValue);
     }
 
     function renderCellHTML(row, col, dataIndex) {
@@ -2174,6 +2071,27 @@ padding-top: 6px;
       return `<td class="${sticky} ${numeric}">${value}</td>`;
     }
 
+    
+    function updateHomeKPIs() {
+      const total = data.length;
+      const audited = data.filter(row => {
+        const status = (row["POSITION STATUS"] || row.position_status || row.item_status || "").toString().toUpperCase();
+        return status === "FILLED" || status === "AUDITED" || row.is_audited === true;
+      }).length;
+      const remaining = total - audited;
+      const pct = total > 0 ? parseFloat(((audited / total) * 100).toFixed(1)) : 0;
+
+      const elTotal = document.getElementById("kpi-total-unfilled");
+      const elAudited = document.getElementById("kpi-audited-items");
+      const elRemaining = document.getElementById("kpi-remaining-items");
+      const elRate = document.getElementById("kpi-completion-rate");
+
+      if (elTotal) elTotal.textContent = total;
+      if (elAudited) elAudited.textContent = audited;
+      if (elRemaining) elRemaining.textContent = remaining;
+      if (elRate) elRate.textContent = `${pct}% audit completion`;
+    }
+  
     function renderHeader() {
       const head = document.getElementById("auditHead");
       const compHead = document.getElementById("completedAuditHead");
@@ -2251,14 +2169,21 @@ padding-top: 6px;
         return;
       }
 
-      body.innerHTML = rows.map((row) => `
-        <tr onclick="openRowModal(${data.indexOf(row)})">
-          <td class="status-col">
-            <span class="row-status incomplete">● Pending</span>
-          </td>
-          ${columns.map(col => renderCellHTML(row, col, data.indexOf(row))).join("")}
-        </tr>
-      `).join("");
+      body.innerHTML = rows.map((row) => {
+        const isDirty = row._isDirty === true;
+        const rowClass = isDirty ? 'bg-amber-50/30 border-l-4 border-l-amber-500' : '';
+        const rowStyle = isDirty ? 'background-color: rgba(254, 243, 199, 0.35); border-left: 4px solid #f59e0b;' : '';
+        const dirtyBadgeHTML = isDirty ? `<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200" style="margin-left: 6px; display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">Uncommitted</span>` : '';
+        return `
+          <tr class="${rowClass}" style="${rowStyle}" onclick="openRowModal(${data.indexOf(row)})">
+            <td class="status-col">
+              <span class="row-status incomplete">● Pending</span>
+              ${dirtyBadgeHTML}
+            </td>
+            ${columns.map(col => renderCellHTML(row, col, data.indexOf(row))).join("")}
+          </tr>
+        `;
+      }).join("");
       initDatePickers();
     }
 
@@ -2299,14 +2224,21 @@ padding-top: 6px;
         return;
       }
 
-      body.innerHTML = completedRows.map((row) => `
-        <tr onclick="openRowModal(${data.indexOf(row)})">
-          <td class="status-col">
-            <span class="row-status complete">● Complete</span>
-          </td>
-          ${columns.map(col => renderCellHTML(row, col, data.indexOf(row))).join("")}
-        </tr>
-      `).join("");
+      body.innerHTML = completedRows.map((row) => {
+        const isDirty = row._isDirty === true;
+        const rowClass = isDirty ? 'bg-amber-50/30 border-l-4 border-l-amber-500' : '';
+        const rowStyle = isDirty ? 'background-color: rgba(254, 243, 199, 0.35); border-left: 4px solid #f59e0b;' : '';
+        const dirtyBadgeHTML = isDirty ? `<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200" style="margin-left: 6px; display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">Uncommitted</span>` : '';
+        return `
+          <tr class="${rowClass}" style="${rowStyle}" onclick="openRowModal(${data.indexOf(row)})">
+            <td class="status-col">
+              <span class="row-status complete">● Complete</span>
+              ${dirtyBadgeHTML}
+            </td>
+            ${columns.map(col => renderCellHTML(row, col, data.indexOf(row))).join("")}
+          </tr>
+        `;
+      }).join("");
       initDatePickers();
     }
 
@@ -2504,18 +2436,30 @@ padding-top: 6px;
       button.addEventListener("click", () => setPersonnelCategory(button.dataset.category));
     });
 
-    sidebar.addEventListener("mouseenter", () => appShell.classList.add("sidebar-open"));
-    sidebar.addEventListener("mouseleave", () => {
-      appShell.classList.remove("sidebar-open");
-    });
+    if (sidebar) {
+      sidebar.addEventListener("mouseenter", () => {
+        sidebar.classList.add("expanded");
+        sidebar.classList.remove("collapsed");
+        if (appShell) appShell.classList.add("sidebar-open");
+      });
+      sidebar.addEventListener("mouseleave", () => {
+        sidebar.classList.add("collapsed");
+        sidebar.classList.remove("expanded");
+        if (appShell) appShell.classList.remove("sidebar-open");
+      });
+    }
 
     document.getElementById("darkModeBtn").addEventListener("click", () => {
       document.body.classList.toggle("dark");
     });
 
+    let searchDebounceTimer = null;
     search.addEventListener("input", () => {
-      renderRows();
-      renderCompletedRows();
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        renderRows();
+        renderCompletedRows();
+      }, 300);
     });
 
     document.addEventListener("keydown", (event) => {
@@ -2833,6 +2777,381 @@ padding-top: 6px;
     renderRows();
     renderCompletedRows();
     initAgingChart();
+  
+    // Initialize staged edits state from localStorage cache
+    let stagedEdits = JSON.parse(localStorage.getItem('dpa_staged_edits') || '{}');
+
+    // Field mapping dictionary between UI column names and backend DB column names
+    const FIELD_MAP_UI_TO_DB = {
+      "POSITION STATUS": "position_status",
+      "NAME OF INCUMBENT": "name_of_incumbent",
+      "FIRST DAY OF SERVICE": "first_day_of_service",
+      "DATE OF VACANCY": "date_of_vacancy",
+      "REASON FOR VACANCY": "reason_for_vacancy",
+      "STATUS OF VACANCY": "status_of_vacancy",
+      "OTHER REMARKS": "other_remarks",
+      "TENTATIVE DATE TO FILL-UP": "tentative_date_to_fill_up"
+    };
+
+    function getStagedRowEdits(rowId) {
+      return stagedEdits[rowId] || null;
+    }
+
+    function stageRowEdit(rowId, fieldName, value) {
+      if (!rowId) return;
+      if (!stagedEdits[rowId]) {
+        stagedEdits[rowId] = {};
+      }
+      const dbField = FIELD_MAP_UI_TO_DB[fieldName] || fieldName;
+      stagedEdits[rowId][dbField] = value;
+
+      localStorage.setItem('dpa_staged_edits', JSON.stringify(stagedEdits));
+
+      const row = data.find(r => (r.id || r["ITEM NUMBER"]) === rowId);
+      if (row) {
+        row[fieldName] = value;
+        row._isDirty = true;
+      }
+
+      if (typeof renderRows === 'function') renderRows();
+      if (typeof renderCompletedRows === 'function') renderCompletedRows();
+      if (typeof renderCompletionStickers === 'function') renderCompletionStickers();
+      if (typeof updateHomeKPIs === 'function') updateHomeKPIs();
+      if (typeof updateAgingChart === 'function') updateAgingChart();
+      updateSaveChangesUI();
+    }
+
+    function mergeStagedEdits(dbRows) {
+      const staged = JSON.parse(localStorage.getItem('dpa_staged_edits') || '{}');
+      return dbRows.map(row => {
+        const rowId = row.id || row["ITEM NUMBER"];
+        if (staged[rowId]) {
+          const merged = { ...row, _isDirty: true };
+          Object.entries(staged[rowId]).forEach(([dbKey, val]) => {
+            const uiKey = Object.keys(FIELD_MAP_UI_TO_DB).find(k => FIELD_MAP_UI_TO_DB[k] === dbKey) || dbKey;
+            merged[uiKey] = val;
+          });
+          return merged;
+        }
+        return row;
+      });
+    }
+
+    function updateSaveChangesUI() {
+      const btn = document.getElementById('btn-save-changes');
+      const badge = document.getElementById('staged-edits-badge');
+      const countSpan = document.getElementById('staged-edits-count');
+      if (!btn || !badge || !countSpan) return;
+
+      const count = Object.keys(stagedEdits).length;
+
+      if (count > 0) {
+        btn.disabled = false;
+        btn.className = 'btn-save-active';
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        countSpan.textContent = count;
+      } else {
+        btn.disabled = true;
+        btn.className = 'btn-save-disabled';
+        badge.classList.remove('flex');
+        badge.classList.add('hidden');
+        countSpan.textContent = '0';
+      }
+    }
+
+    async function saveAllChanges() {
+      const btn = document.getElementById('btn-save-changes');
+      const btnText = document.getElementById('btn-save-text');
+      const count = Object.keys(stagedEdits).length;
+      if (count === 0) return;
+
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.textContent = 'Saving Changes...';
+
+      const token = localStorage.getItem('dpa_token');
+      const syncErrors = [];
+
+      const updatePromises = Object.entries(stagedEdits).map(([rowId, payload]) => {
+        return fetch(`/api/personnel-audit/${encodeURIComponent(rowId)}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        })
+        .then(async res => {
+          if (!res.ok) {
+            const errMsg = await res.text();
+            throw new Error(`Row ${rowId}: ${errMsg || res.statusText}`);
+          }
+          return rowId;
+        })
+        .catch(err => {
+          syncErrors.push(err.message);
+          return null;
+        });
+      });
+
+      try {
+        const results = await Promise.all(updatePromises);
+        results.forEach(successId => {
+          if (successId) {
+            delete stagedEdits[successId];
+            const row = data.find(r => (r.id || r["ITEM NUMBER"]) === successId);
+            if (row) {
+              delete row._isDirty;
+            }
+          }
+        });
+
+        if (Object.keys(stagedEdits).length > 0) {
+          localStorage.setItem('dpa_staged_edits', JSON.stringify(stagedEdits));
+          alert(`Some changes could not be saved:\n${syncErrors.join('\n')}\nRemaining edits are preserved locally.`);
+        } else {
+          localStorage.removeItem('dpa_staged_edits');
+          stagedEdits = {};
+          alert('All changes saved successfully!');
+        }
+      } catch (globalErr) {
+        alert(`An error occurred during synchronization: ${globalErr.message}`);
+      } finally {
+        if (btnText) btnText.textContent = 'Save Changes';
+        updateSaveChangesUI();
+        if (typeof renderRows === 'function') renderRows();
+        if (typeof renderCompletedRows === 'function') renderCompletedRows();
+        if (typeof renderCompletionStickers === 'function') renderCompletionStickers();
+        if (typeof updateHomeKPIs === 'function') updateHomeKPIs();
+        if (typeof updateAgingChart === 'function') updateAgingChart();
+      }
+    }
+
+    let regionDivData = { regions: [], divisions: [] };
+
+    async function loadDirectories() {
+      try {
+        const res = await fetch('/api/auth/regions-divisions');
+        if (res.ok) {
+          regionDivData = await res.json();
+          const regionSelect = document.getElementById('reg-region');
+          if (regionSelect) {
+            regionSelect.innerHTML = '<option value="">Select Region</option>';
+            regionDivData.regions.forEach(reg => {
+              const opt = document.createElement('option');
+              opt.value = reg.id;
+              opt.textContent = reg.name;
+              regionSelect.appendChild(opt);
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load local geographic directory:', e);
+      }
+    }
+
+    function showGatedAuth() {
+      const authContainer = document.getElementById('gated-auth-container');
+      const mainApp = document.getElementById('main-dashboard-app');
+      if (authContainer) authContainer.style.display = 'flex';
+      if (mainApp) mainApp.style.display = 'none';
+    }
+
+    function showMainDashboard() {
+      const authContainer = document.getElementById('gated-auth-container');
+      const mainApp = document.getElementById('main-dashboard-app');
+      if (authContainer) authContainer.style.display = 'none';
+      if (mainApp) mainApp.style.display = 'block';
+    }
+
+    function hydrateProfile(user) {
+      const profileCard = document.querySelector('.profile-card');
+      if (profileCard) {
+        const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'HRMO User';
+        const position = user.position || 'Human Resource Management Officer';
+        const regionName = user.region_name || user.region_id || '';
+        const divisionName = user.division_office_name || user.division_id || '';
+        const location = [regionName, divisionName].filter(Boolean).join(' • ');
+
+        profileCard.innerHTML = `
+          <strong>${fullName}</strong>
+          <span>${position}</span>
+          <span>${location}</span>
+        `;
+      }
+    }
+
+    async function checkAuthAndHydrate() {
+      const token = localStorage.getItem('dpa_token');
+      if (!token) {
+        showGatedAuth();
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success && result.data) {
+            const user = result.data;
+            hydrateProfile(user);
+            showMainDashboard();
+
+            // Fetch personnel_audit table data filtered for registered user's region and division
+            try {
+              const auditRes = await fetch(`/api/personnel-audit/records?region_id=${encodeURIComponent(user.region_id)}&division_id=${encodeURIComponent(user.division_id)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (auditRes.ok) {
+                const auditResult = await auditRes.json();
+                if (auditResult.success && Array.isArray(auditResult.data) && auditResult.data.length > 0) {
+                  data = auditResult.data;
+                }
+              }
+            } catch (auditErr) {
+              console.error('Failed to fetch user-filtered personnel audit records:', auditErr);
+            }
+
+            data = mergeStagedEdits(data);
+            if (typeof renderHeader === 'function') renderHeader();
+            if (typeof renderShortcutFilters === 'function') renderShortcutFilters();
+            if (typeof renderCompletionStickers === 'function') renderCompletionStickers();
+            if (typeof updateHomeKPIs === 'function') updateHomeKPIs();
+            if (typeof renderRows === 'function') renderRows();
+            if (typeof renderCompletedRows === 'function') renderCompletedRows();
+            if (typeof updateAgingChart === 'function') updateAgingChart();
+            if (typeof updateSaveChangesUI === 'function') updateSaveChangesUI();
+
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Session verification failed:', err);
+      }
+      localStorage.removeItem('dpa_token');
+      showGatedAuth();
+    }
+
+    // Initialize Auth UI and Listeners
+    loadDirectories();
+
+    const regRegionSelect = document.getElementById('reg-region');
+    const regDivisionSelect = document.getElementById('reg-division');
+    if (regRegionSelect && regDivisionSelect) {
+      regRegionSelect.addEventListener('change', () => {
+        const selectedRegionId = regRegionSelect.value;
+        regDivisionSelect.innerHTML = '<option value="">Select Division</option>';
+        if (!selectedRegionId) {
+          regDivisionSelect.disabled = true;
+          return;
+        }
+        const filteredDivisions = (regionDivData.divisions || []).filter(d => d.region_id === selectedRegionId);
+        filteredDivisions.forEach(div => {
+          const opt = document.createElement('option');
+          opt.value = div.id;
+          opt.textContent = div.office_name;
+          regDivisionSelect.appendChild(opt);
+        });
+        regDivisionSelect.disabled = false;
+      });
+    }
+
+    const signinCard = document.getElementById('signin-card');
+    const signupCard = document.getElementById('signup-card');
+    const switchToRegister = document.getElementById('switch-to-register');
+    const switchToSignin = document.getElementById('switch-to-signin');
+
+    if (switchToRegister && switchToSignin) {
+      switchToRegister.addEventListener('click', () => {
+        signinCard.classList.add('hidden');
+        signupCard.classList.remove('hidden');
+      });
+      switchToSignin.addEventListener('click', () => {
+        signupCard.classList.add('hidden');
+        signinCard.classList.remove('hidden');
+      });
+    }
+
+    const signinForm = document.getElementById('signin-form');
+    const signinError = document.getElementById('signin-error');
+    if (signinForm) {
+      signinForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        signinError.classList.add('hidden');
+        signinError.textContent = '';
+        const formData = new FormData(signinForm);
+        const payload = Object.fromEntries(formData.entries());
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok && data.success && data.data && data.data.token) {
+            localStorage.setItem('dpa_token', data.data.token);
+            checkAuthAndHydrate();
+          } else {
+            signinError.textContent = data.error || data.message || 'Authentication failed. Please check credentials.';
+            signinError.classList.remove('hidden');
+          }
+        } catch (err) {
+          signinError.textContent = 'Server connection failed. Please try again.';
+          signinError.classList.remove('hidden');
+        }
+      });
+    }
+
+    const signupForm = document.getElementById('signup-form');
+    const signupError = document.getElementById('signup-error');
+    if (signupForm) {
+      signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        signupError.classList.add('hidden');
+        signupError.textContent = '';
+        const formData = new FormData(signupForm);
+        const payload = Object.fromEntries(formData.entries());
+
+        const confirmPass = document.getElementById('reg-confirm-password').value;
+        if (payload.password !== confirmPass) {
+          signupError.textContent = 'Passwords do not match.';
+          signupError.classList.remove('hidden');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok && data.success && data.data && data.data.token) {
+            localStorage.setItem('dpa_token', data.data.token);
+            checkAuthAndHydrate();
+          } else {
+            signupError.textContent = data.error || data.message || 'Registration failed.';
+            signupError.classList.remove('hidden');
+          }
+        } catch (err) {
+          signupError.textContent = 'Server connection error during registration.';
+          signupError.classList.remove('hidden');
+        }
+      });
+    }
+
+    const signOutBtn = document.getElementById('signOutBtn');
+    if (signOutBtn) {
+      signOutBtn.addEventListener('click', () => {
+        localStorage.removeItem('dpa_token');
+        showGatedAuth();
+      });
+    }
+
+    checkAuthAndHydrate();
+
   </script>
 </body>
 </html>
