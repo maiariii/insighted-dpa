@@ -3,43 +3,67 @@ const router = express.Router();
 const { verifyToken } = require("./auth");
 
 /**
- * Single-pass SQL aggregation query template (PostgreSQL)
- * Uses conditional filtering to aggregate all KPI metrics in a single pass.
+ * Summary KPI aggregation query (PostgreSQL)
+ * Single-pass: returns total_monitored, audited_items, and remaining_items
+ * filtered by active session's region and division (plain-text VARCHAR).
  */
 const GET_KPI_METRICS_SQL = `
-  SELECT 
-    COUNT(*)::int AS total_unfilled,
+  SELECT
+    COUNT(*)::int AS total_monitored,
     COALESCE(SUM(CASE WHEN item_status = 'Audited' OR position_status = 'FILLED' OR is_audited = true THEN 1 ELSE 0 END), 0)::int AS audited_items,
     COALESCE(SUM(CASE WHEN (item_status != 'Audited' AND (position_status IS NULL OR position_status != 'FILLED') AND (is_audited IS NULL OR is_audited = false)) OR item_status IS NULL THEN 1 ELSE 0 END), 0)::int AS remaining_items
-  FROM personnel_audits pa
-  WHERE ($1::varchar IS NULL OR pa.region_id = $1 OR pa.region_id ILIKE '%' || $1 || '%')
-    AND ($2::varchar IS NULL 
-         OR pa.division_id = $2 
-         OR pa.division_id ILIKE '%' || $2 || '%'
-         OR $2 ILIKE '%' || REPLACE(pa.division_id, 'Division of ', '') || '%');
+  FROM personnel_audits
+  WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
+    AND ($2::varchar IS NULL OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
+         OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%');
 `;
 
 /**
- * SQLite alternative SQL query template (for SQLite compatibility)
+ * Vacancy Aging Distribution query (PostgreSQL)
+ * Groups UNFILLED rows by vacancy_aging_status.
+ */
+const GET_AGING_DISTRIBUTION_SQL = `
+  SELECT
+    COALESCE(vacancy_aging_status, 'Unspecified') AS status,
+    COUNT(*)::int AS count
+  FROM personnel_audits
+  WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
+    AND ($2::varchar IS NULL OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
+         OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%')
+    AND position_status = 'UNFILLED'
+  GROUP BY vacancy_aging_status
+  ORDER BY count DESC;
+`;
+
+/**
+ * Reasons Unfilled breakdown query (PostgreSQL)
+ * Groups UNFILLED rows by reason_for_vacancy.
+ */
+const GET_REASONS_UNFILLED_SQL = `
+  SELECT
+    COALESCE(reason_for_vacancy, 'Unspecified') AS reason,
+    COUNT(*)::int AS count
+  FROM personnel_audits
+  WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
+    AND ($2::varchar IS NULL OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
+         OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%')
+    AND position_status = 'UNFILLED'
+  GROUP BY reason_for_vacancy
+  ORDER BY count DESC;
+`;
+
+/**
+ * SQLite alternative SQL query template (for SQLite compatibility / local test environments)
  */
 const GET_KPI_METRICS_SQLITE = `
-  SELECT 
-    COUNT(*) AS total_unfilled,
+  SELECT
+    COUNT(*) AS total_monitored,
     COALESCE(SUM(CASE WHEN item_status = 'Audited' OR position_status = 'FILLED' OR is_audited = 1 THEN 1 ELSE 0 END), 0) AS audited_items,
     COALESCE(SUM(CASE WHEN (item_status != 'Audited' AND (position_status IS NULL OR position_status != 'FILLED') AND (is_audited IS NULL OR is_audited = 0)) OR item_status IS NULL THEN 1 ELSE 0 END), 0) AS remaining_items
-  FROM personnel_audits pa
-  WHERE (? IS NULL OR pa.region_id = ?)
-    AND (? IS NULL OR pa.division_id = ?);
+  FROM personnel_audits
+  WHERE (? IS NULL OR region_id = ?)
+    AND (? IS NULL OR division_id = ?);
 `;
-
-/**
- * Mock Data Repository (used when live DB client is not yet attached)
- */
-const MOCK_DB_STORE = {
-  "NCR|Regional Office - Proper": { totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0.0 },
-  "Region XI|Division Office": { totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0.0 },
-  "Region III|Regional Office": { totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0.0 }
-};
 
 /**
  * GET /api/personnel-audit/records
@@ -52,7 +76,7 @@ router.get("/records", verifyToken, async (req, res) => {
     const targetDivision = division_id || req.user.division_id;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 50));
+    const limitNum = Math.max(1, Math.min(10000, parseInt(limit, 10) || 5000));
     const offsetNum = queryOffset !== undefined ? Math.max(0, parseInt(queryOffset, 10) || 0) : (pageNum - 1) * limitNum;
 
     const db = req.app.get("dbClient");
@@ -143,67 +167,92 @@ router.get("/records", verifyToken, async (req, res) => {
 
 /**
  * GET /api/personnel-audit/kpis
- * Returns dynamic KPI metrics for a specified region and office.
+ * Returns live dashboard metrics: KPI summary, vacancy aging distribution,
+ * and reasons unfilled — all filtered by the authenticated user's region and division.
+ * Secured by verifyToken middleware so region_id and division_id are always from JWT.
  */
-router.get("/kpis", async (req, res) => {
+router.get("/kpis", verifyToken, async (req, res) => {
   try {
-    const { region, office } = req.query;
-
-    const cleanRegion = region && typeof region === "string" ? region.trim() : null;
-    const cleanOffice = office && typeof office === "string" ? office.trim() : null;
-
-    let total = 0;
-    let audited = 0;
-    let remaining = 0;
-
-    // Execute query against database if available
     const db = req.app.get("dbClient");
 
+    // Extract identity from verified JWT claims
+    const userRegion   = req.user.region_id   || null;
+    const userDivision = req.user.division_id  || null;
+
+    // Allow optional override from query params (e.g. for admin views)
+    const rawRegion  = req.query.region  && typeof req.query.region  === "string" ? req.query.region.trim()  : null;
+    const rawOffice  = req.query.office  && typeof req.query.office  === "string" ? req.query.office.trim()  : null;
+
+    const filterRegion   = rawRegion  || userRegion;
+    const filterDivision = rawOffice  || userDivision;
+
+    const params = [filterRegion, filterDivision];
+
     if (db && typeof db.query === "function") {
-      const result = await db.query(GET_KPI_METRICS_SQL, [cleanRegion, cleanOffice]);
-      const row = result.rows[0] || {};
-      
-      total = parseInt(row.total_unfilled || 0, 10);
-      audited = parseInt(row.audited_items || 0, 10);
-      remaining = parseInt(row.remaining_items || 0, 10);
+      // Run all three aggregations in parallel for minimum latency
+      const [kpiRes, agingRes, reasonsRes] = await Promise.all([
+        db.query(GET_KPI_METRICS_SQL,          params),
+        db.query(GET_AGING_DISTRIBUTION_SQL,   params),
+        db.query(GET_REASONS_UNFILLED_SQL,     params)
+      ]);
+
+      const kpiRow = kpiRes.rows[0] || {};
+      const total     = parseInt(kpiRow.total_monitored || 0, 10);
+      const audited   = parseInt(kpiRow.audited_items   || 0, 10);
+      const remaining = parseInt(kpiRow.remaining_items || 0, 10);
+
+      // Zero-division safeguard for completion percentage
+      const completionPercentage = total > 0 ? parseFloat(((audited / total) * 100).toFixed(1)) : 0;
+
+      return res.status(200).json({
+        status: "success",
+        success: true,
+        // Flat top-level keys preserved for backwards compatibility
+        totalUnfilled:        total,
+        auditedItems:         audited,
+        remainingItems:       remaining,
+        completionPercentage,
+        // Unified nested dashboard payload
+        kpis: {
+          totalUnfilled:        total,
+          auditedItems:         audited,
+          remainingItems:       remaining,
+          completionPercentage,
+          // Legacy compatibility aliases
+          totalAudited:         total,
+          completedAudited:     audited,
+          accomplishmentRate:   completionPercentage
+        },
+        vacancyAgingDistribution: agingRes.rows,
+        reasonsUnfilled:          reasonsRes.rows,
+        data: {
+          region:               filterRegion  || null,
+          office:               filterDivision || null,
+          totalUnfilled:        total,
+          auditedItems:         audited,
+          remainingItems:       remaining,
+          completionPercentage,
+          totalAudited:         total,
+          completedAudited:     audited,
+          accomplishmentRate:   completionPercentage
+        }
+      });
+
     } else {
-      // Demo / Fallback Mock Data execution
-      const storeKey = `${cleanRegion || "NCR"}|${cleanOffice || "Regional Office - Proper"}`;
-      const mockRecord = MOCK_DB_STORE[storeKey] || {
+      // No DB client attached — return clean zero-state
+      return res.status(200).json({
+        status: "success",
+        success: true,
         totalUnfilled: 0,
         auditedItems: 0,
-        remainingItems: 0
-      };
-
-      total = mockRecord.totalUnfilled !== undefined ? mockRecord.totalUnfilled : (mockRecord.totalAudited || 0);
-      audited = mockRecord.auditedItems !== undefined ? mockRecord.auditedItems : (mockRecord.completedAudited || 0);
-      remaining = mockRecord.remainingItems !== undefined ? mockRecord.remainingItems : (total - audited);
+        remainingItems: 0,
+        completionPercentage: 0,
+        kpis: { totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0 },
+        vacancyAgingDistribution: [],
+        reasonsUnfilled: [],
+        data: { region: filterRegion, office: filterDivision, totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0 }
+      });
     }
-
-    // Zero-Division Safeguard for Completion Percentage
-    const completionPercentage = total > 0 ? parseFloat(((audited / total) * 100).toFixed(1)) : 0;
-
-    // Structured JSON Response Payload
-    return res.status(200).json({
-      status: "success",
-      success: true,
-      totalUnfilled: total,
-      auditedItems: audited,
-      remainingItems: remaining,
-      completionPercentage,
-      data: {
-        region: cleanRegion || "NCR",
-        office: cleanOffice || "Regional Office - Proper",
-        totalUnfilled: total,
-        auditedItems: audited,
-        remainingItems: remaining,
-        completionPercentage,
-        // Backwards compatibility keys
-        totalAudited: total,
-        completedAudited: audited,
-        accomplishmentRate: completionPercentage
-      }
-    });
 
   } catch (error) {
     console.error("Error executing /api/personnel-audit/kpis endpoint:", error);
@@ -397,7 +446,7 @@ router.post("/interventions", verifyToken, async (req, res) => {
 });
 
 module.exports = router;
-module.exports.GET_KPI_METRICS_SQL = GET_KPI_METRICS_SQL;
-module.exports.GET_KPI_METRICS_SQLITE = GET_KPI_METRICS_SQLITE;
-
-
+module.exports.GET_KPI_METRICS_SQL         = GET_KPI_METRICS_SQL;
+module.exports.GET_KPI_METRICS_SQLITE      = GET_KPI_METRICS_SQLITE;
+module.exports.GET_AGING_DISTRIBUTION_SQL  = GET_AGING_DISTRIBUTION_SQL;
+module.exports.GET_REASONS_UNFILLED_SQL    = GET_REASONS_UNFILLED_SQL;

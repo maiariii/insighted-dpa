@@ -47,40 +47,22 @@ CREATE TABLE IF NOT EXISTS users (
     CONSTRAINT uq_user_geographic_identity UNIQUE (id, region_id, division_id)
 );
 
--- 5. Host HRMO Profiles
-CREATE TABLE IF NOT EXISTS host_hrmos (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID UNIQUE NOT NULL,
-    region_id VARCHAR(20) NOT NULL,
-    division_id UUID NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (user_id, region_id, division_id) 
-        REFERENCES users(id, region_id, division_id) 
-        ON UPDATE CASCADE ON DELETE CASCADE,
-        
-    CONSTRAINT uq_hrmo_geographic_identity UNIQUE (id, region_id, division_id)
-);
-
--- 6. Collaborator Profiles (Dynamically Adopts Host Boundaries)
+-- Collaborators Table
 CREATE TABLE IF NOT EXISTS collaborators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID UNIQUE NOT NULL,
-    host_hrmo_id UUID NOT NULL,
-    region_id VARCHAR(20) NOT NULL,
-    division_id UUID NOT NULL,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
+    position VARCHAR(255),
+    email VARCHAR(255) NOT NULL,
+    region_id VARCHAR(255) NOT NULL,
+    division_id VARCHAR(255) NOT NULL,
+    host_hrmo_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (user_id, region_id, division_id) 
-        REFERENCES users(id, region_id, division_id) 
-        ON UPDATE CASCADE ON DELETE CASCADE,
-        
-    FOREIGN KEY (host_hrmo_id, region_id, division_id) 
-        REFERENCES host_hrmos(id, region_id, division_id) 
-        ON UPDATE CASCADE ON DELETE CASCADE
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Personnel Audits
+-- 5. Personnel Audits
 CREATE TABLE IF NOT EXISTS personnel_audits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     dpa_month INT NOT NULL DEFAULT 8,

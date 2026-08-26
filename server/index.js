@@ -3,6 +3,7 @@ const path = require("path");
 const db = require("./db");
 const dpaRouter = require("./routes/dpa");
 const authRouter = require("./routes/auth");
+const collaboratorsRouter = require("./routes/collaborators");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ app.use(express.static(path.join(__dirname, "..")));
 // Mount Auth & DPA API routes
 app.use("/api/auth", authRouter);
 app.use("/api/personnel-audit", dpaRouter);
+app.use("/api/collaborators", collaboratorsRouter);
 
 // Serve dashboard application at root URL
 app.get("/", (req, res) => {

@@ -25,22 +25,58 @@ const query = (text, params) => pool.query(text, params);
  */
 async function runMigration() {
   // Safe column size upgrades for existing database & decoupling FKs on personnel_audits
+  // Also migrates users/host_hrmos/collaborators division_id from UUID -> VARCHAR(255)
   try {
     await pool.query(`
-      ALTER TABLE regions ALTER COLUMN id TYPE VARCHAR(20);
-      ALTER TABLE division_offices ALTER COLUMN region_id TYPE VARCHAR(20);
-      ALTER TABLE users ALTER COLUMN region_id TYPE VARCHAR(20);
-      ALTER TABLE host_hrmos ALTER COLUMN region_id TYPE VARCHAR(20);
-      ALTER TABLE collaborators ALTER COLUMN region_id TYPE VARCHAR(20);
+      -- Drop all FK / unique constraints that depend on division_id type or cross-table refs
+      ALTER TABLE users        DROP CONSTRAINT IF EXISTS users_division_id_fkey CASCADE;
+      ALTER TABLE host_hrmos   DROP CONSTRAINT IF EXISTS host_hrmos_division_id_fkey CASCADE;
+      ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_division_id_fkey CASCADE;
+      ALTER TABLE users        DROP CONSTRAINT IF EXISTS uq_user_geographic_identity CASCADE;
+      ALTER TABLE host_hrmos   DROP CONSTRAINT IF EXISTS uq_hrmo_geographic_identity CASCADE;
+      ALTER TABLE host_hrmos   DROP CONSTRAINT IF EXISTS host_hrmos_user_id_region_id_division_id_fkey CASCADE;
+      ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_user_id_region_id_division_id_fkey CASCADE;
+      ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_host_hrmo_id_region_id_division_id_fkey CASCADE;
 
-      ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_region_id_fkey;
-      ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_division_id_fkey;
+      -- Drop obsolete host_hrmos table
+      DROP TABLE IF EXISTS host_hrmos CASCADE;
 
-      ALTER TABLE personnel_audits ALTER COLUMN region_id TYPE VARCHAR(255);
+      -- Create collaborators table for HRMO invited helpers
+      CREATE TABLE IF NOT EXISTS collaborators (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        first_name VARCHAR(255) NOT NULL,
+        last_name VARCHAR(255) NOT NULL,
+        position VARCHAR(255),
+        email VARCHAR(255) NOT NULL,
+        region_id VARCHAR(255) NOT NULL,
+        division_id VARCHAR(255) NOT NULL,
+        host_hrmo_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Widen ALL geography columns to VARCHAR(255) (supports full region names)
+      ALTER TABLE regions          ALTER COLUMN id          TYPE VARCHAR(255);
+      ALTER TABLE division_offices ALTER COLUMN region_id   TYPE VARCHAR(255);
+      ALTER TABLE users            ALTER COLUMN region_id   TYPE VARCHAR(255);
+      ALTER TABLE users            ALTER COLUMN division_id TYPE VARCHAR(255) USING division_id::text;
+
+      -- Drop FK constraints on personnel_audits (already decoupled)
+      ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_region_id_fkey CASCADE;
+      ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_division_id_fkey CASCADE;
+
+      -- Widen personnel_audits geography columns
+      ALTER TABLE personnel_audits ALTER COLUMN region_id  TYPE VARCHAR(255);
       ALTER TABLE personnel_audits ALTER COLUMN division_id TYPE VARCHAR(255);
 
       ALTER TABLE personnel_audits ADD COLUMN IF NOT EXISTS dpa_month INT NOT NULL DEFAULT 8;
-      ALTER TABLE personnel_audits ADD COLUMN IF NOT EXISTS dpa_year INT NOT NULL DEFAULT 2026;
+      ALTER TABLE personnel_audits ADD COLUMN IF NOT EXISTS dpa_year  INT NOT NULL DEFAULT 2026;
+
+      -- Backfill plain-text region and division details for sebastian.cheng2@deped.gov.ph
+      UPDATE users 
+      SET region_id = 'Region V - Bicol', division_id = 'Division of Masbate City' 
+      WHERE deped_email = 'sebastian.cheng2@deped.gov.ph';
     `);
   } catch (err) {
     // Ignore errors if tables do not exist yet

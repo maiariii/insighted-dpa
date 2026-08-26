@@ -1520,6 +1520,8 @@ padding-top: 6px;
               <tbody id="auditBody"></tbody>
             </table>
           </div>
+          <!-- Pending Table Pagination Bar -->
+          <div id="pendingPagination" class="flex items-center justify-between mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs font-semibold text-slate-500"></div>
         </article>
 
         <!-- Completed Audit Rows Table Card -->
@@ -1538,6 +1540,8 @@ padding-top: 6px;
               <tbody id="completedAuditBody"></tbody>
             </table>
           </div>
+          <!-- Completed Table Pagination Bar -->
+          <div id="completedPagination" class="flex items-center justify-between mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs font-semibold text-slate-500"></div>
         </article>
       </section>
 
@@ -1592,12 +1596,20 @@ padding-top: 6px;
               </div>
             </div>
             <div class="form-stack">
-              <label>First name <input class="field" placeholder="Jose" /></label>
-              <label>Last name <input class="field" placeholder="Reyes" /></label>
-              <label>Position <input class="field" placeholder="Administrative Officer II" /></label>
-              <label>Email address <input class="field" placeholder="assistant@deped.gov.ph" /></label>
-              <button class="btn">Invite collaborator</button>
-              <span>Collaborators inherit scope: NCR • Regional Office - Proper</span>
+              <label>First name <input id="collab-first-name" class="field" placeholder="Jose" /></label>
+              <label>Last name <input id="collab-last-name" class="field" placeholder="Reyes" /></label>
+              <label>Position <input id="collab-position" class="field" placeholder="Administrative Officer II" /></label>
+              <label>Email address <input id="collab-email" type="email" class="field" placeholder="assistant@deped.gov.ph" /></label>
+              <button class="btn" id="btn-invite-collaborator" onclick="inviteCollaborator()">Invite collaborator</button>
+              <span id="collab-scope-hint">Collaborators inherit scope: Region V - Bicol • Division of Masbate City</span>
+            </div>
+
+            <!-- Active Collaborators List Card -->
+            <div style="margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px;">
+              <h4 style="font-size: 13px; font-weight: 800; color: var(--ink); margin: 0 0 10px;">Active Collaborators</h4>
+              <div id="collaborators-list-container" style="display: grid; gap: 8px;">
+                <p style="font-size: 12px; color: var(--muted); margin: 0;">No active collaborators yet.</p>
+              </div>
             </div>
           </article>
         </div>
@@ -1678,12 +1690,9 @@ padding-top: 6px;
           <input id="remarkUser" class="field form-input-readonly" value="Maria Santos (HRMO)" readonly />
         </label>
         <label>Timestamp
-          <input id="remarkTimestamp" class="field form-input-readonly" readonly />
-        </label>
-      </div>
-      <div class="actions" style="margin-top: 20px;">
+                  <div class="actions" style="margin-top: 20px;">
         <button class="btn" onclick="saveRemarksModal()">Save Remarks</button>
-        <button class="btn secondary" onclick="closeRemarksModal()">Cancel</button>
+        <button class="btn secondary" onclick="closeRemarksModal()">Close</button>
       </div>
     </div>
   </div>
@@ -1691,7 +1700,7 @@ padding-top: 6px;
   <!-- Vacancy Aging Breakdown Modal -->
   <div class="modal-backdrop" id="vacancyDetailsModal" role="dialog" aria-modal="true" aria-labelledby="modalCategoryTitle">
     <div class="modal" style="width: min(1000px, 95vw); max-height: 85vh; display: flex; flex-direction: column;">
-      <div class="section-title" style="margin-bottom: 12px;">
+      <div class="audit-header" style="margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">
         <div>
           <h3 id="modalCategoryTitle">Vacancy Details</h3>
           <p id="modalCategorySub">Filtered personnel audit records for the selected vacancy aging status category.</p>
@@ -1719,7 +1728,67 @@ padding-top: 6px;
         <button class="btn secondary" onclick="closeVacancyDetailsModal()">Close</button>
       </div>
     </div>
+  </div>
+  <!-- /vacancyDetailsModal -->
+
+  <!-- Unsaved Changes Prompt Modal Card -->
+  <div class="modal-backdrop" id="unsavedChangesModal" role="dialog" aria-modal="true" aria-labelledby="unsavedChangesTitle">
+    <div class="modal p-0 overflow-hidden border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl" style="width: min(540px, 94vw);">
+      <!-- Card Header Accent Banner -->
+      <div class="p-6 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent flex items-start gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-inner">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-600 dark:text-amber-400 block mb-1">Uncommitted Session Draft</span>
+          <h3 id="unsavedChangesTitle" class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Unsaved Audit Changes Detected</h3>
+          <p id="unsavedChangesSub" class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            You have pending personnel audit row updates stored in local draft memory.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card Content Details -->
+      <div class="p-6 space-y-4">
+        <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Staged Audit Item Updates</span>
+          </div>
+          <span id="unsavedPromptBadge" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80">
+            <strong id="unsavedPromptCount" class="mr-1">0</strong> Uncommitted Items
+          </span>
+        </div>
+
+        <div id="unsavedItemsPreview" class="text-xs text-slate-500 dark:text-slate-400 max-h-28 overflow-y-auto pr-1 space-y-1">
+          <!-- Dynamically filled list of item numbers with pending edits -->
+        </div>
+
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          Would you like to commit these updates to the database now, discard the draft updates, or continue reviewing them on the table?
+        </p>
+      </div>
+
+      <!-- Card Action Footer -->
+      <div class="px-6 py-4 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5 flex-wrap">
+        <button type="button" onclick="saveAllChangesAndClosePrompt()" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 transition-all hover:-translate-y-0.5 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          <span>Save Changes Now</span>
+        </button>
+        <button type="button" onclick="discardUnsavedChangesPrompt()" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 font-semibold text-xs border border-rose-200 dark:border-rose-800/80 rounded-xl transition-all cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+          <span>Discard Draft</span>
+        </button>
+        <button type="button" onclick="closeUnsavedChangesModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl transition-all cursor-pointer">
+          Review Later
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- /unsavedChangesModal -->
+
   <!-- Add Intervention Form Modal -->
+
   <div id="intervention-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
     <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[90vh]" id="modal-container">
       <!-- Modal Header -->
@@ -1753,7 +1822,7 @@ padding-top: 6px;
           <!-- Target Date -->
           <div>
             <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Target Completion Date</label>
-            <input type="date" id="int-date" required onkeydown="event.preventDefault()" onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm cursor-pointer">
+            <input type="text" id="int-date" required readonly onkeydown="return false;" onpaste="return false;" placeholder="YYYY-MM-DD" class="audit-date-picker w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm cursor-pointer">
           </div>
         </div>
 
@@ -1777,10 +1846,28 @@ padding-top: 6px;
         </div>
       </form>
 
+      <!-- Submit loading state indicator (hidden by default) -->
+      <div id="intervention-submitting" class="hidden px-6 py-3 bg-teal-50 dark:bg-teal-950/20 border-t border-teal-100 dark:border-teal-800">
+        <p class="text-xs font-semibold text-teal-700 dark:text-teal-300 animate-pulse flex items-center gap-2">
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+          Saving intervention strategy...
+        </p>
+      </div>
+
+      <!-- Inline validation error banner (hidden by default) -->
+      <div id="intervention-error-banner" class="hidden px-6 py-3 bg-rose-50 dark:bg-rose-950/20 border-t border-rose-100 dark:border-rose-800">
+        <p id="intervention-error-msg" class="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12A9 9 0 113 12a9 9 0 0118 0z"></path></svg>
+          <span></span>
+        </p>
+      </div>
+
       <!-- Modal Footer actions -->
       <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-end gap-3">
-        <button type="button" onclick="closeInterventionModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer">Cancel</button>
-        <button type="submit" form="intervention-form" class="px-4 py-2 text-sm font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-lg shadow transition-colors cursor-pointer">Submit Strategy</button>
+        <button type="button" id="btn-cancel-intervention" onclick="closeInterventionModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer">Cancel</button>
+        <button type="submit" id="btn-submit-intervention" form="intervention-form" class="px-4 py-2 text-sm font-bold bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg shadow transition-colors cursor-pointer flex items-center gap-2">
+          <span id="btn-submit-text">Submit Strategy</span>
+        </button>
       </div>
     </div>
   </div>
@@ -1870,7 +1957,7 @@ padding-top: 6px;
       const searchStr = params.search || '';
       const itemStatus = params.item_status || '';
       const posCat = params.position_category || '';
-      const limit = params.limit || 50;
+      const limit = params.limit || 5000;
       const offset = params.offset || 0;
       const cacheKey = `${regionId || ''}_${divisionId || ''}_${searchStr}_${itemStatus}_${posCat}_${limit}_${offset}`;
 
@@ -2019,9 +2106,17 @@ padding-top: 6px;
       }
     };
 
-    function uniqueValues(key) {
-      return [...new Set(data.map(row => row[key]).filter(Boolean))].sort();
+    let uniqueValuesCache = {};
+    function invalidateUniqueValuesCache() {
+      uniqueValuesCache = {};
     }
+    function uniqueValues(key) {
+      if (uniqueValuesCache[key]) return uniqueValuesCache[key];
+      const res = [...new Set(data.map(row => row[key]).filter(Boolean))].sort();
+      uniqueValuesCache[key] = res;
+      return res;
+    }
+
     function isRowComplete(row) {
       const status = String(row["POSITION STATUS"] || "").toUpperCase();
       if (!status) return false;
@@ -2110,6 +2205,14 @@ padding-top: 6px;
 
       if (col === "NAME OF INCUMBENT") {
         newValue = String(newValue).toUpperCase();
+      }
+
+      if (col === "TENTATIVE DATE TO FILL-UP" && newValue && String(newValue).trim() !== "") {
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (newValue < todayStr) {
+          alert("Validation Error: Tentative Date to Fill-Up must be a present or future date.");
+          return;
+        }
       }
 
       const row = data[dataIndex];
@@ -2204,12 +2307,12 @@ padding-top: 6px;
 
         return `<td class="${sticky} ${numeric}" onclick="event.stopPropagation()">
           <input type="text"
-                 class="form-input audit-date-picker ${disabledClass}"
+                 class="form-input audit-date-picker tentative-date-picker ${disabledClass}"
+                 data-future-only="true"
                  value="${dateVal}"
                  ${disabledAttr}
                  onkeydown="return false;"
                  onpaste="return false;"
-                 ${!isFilled ? `onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }"` : ""}
                  onchange="updateRowField(${dataIndex}, 'TENTATIVE DATE TO FILL-UP', this.value)"
                  placeholder="${isFilled ? "N/A" : "Select Date"}"
                  style="${!isFilled ? "cursor: pointer;" : ""}" />
@@ -2246,7 +2349,6 @@ padding-top: 6px;
                  ${disabledAttr}
                  onkeydown="return false;"
                  onpaste="return false;"
-                 ${isFilled ? `onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }"` : ""}
                  onchange="updateRowField(${dataIndex}, 'FIRST DAY OF SERVICE', this.value)"
                  placeholder="${isFilled ? "Select Date" : "N/A"}"
                  style="${isFilled ? "cursor: pointer;" : ""}"
@@ -2266,7 +2368,6 @@ padding-top: 6px;
                  ${disabledAttr}
                  onkeydown="return false;"
                  onpaste="return false;"
-                 ${!isFilled ? `onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }"` : ""}
                  onchange="updateRowField(${dataIndex}, 'DATE OF VACANCY', this.value)"
                  style="${!isFilled ? "cursor: pointer;" : ""}"
                  placeholder="${isFilled ? "N/A" : "Select Date"}" />
@@ -2347,14 +2448,18 @@ padding-top: 6px;
       if (compHead) compHead.innerHTML = headerHTML;
     }
 
+    let pendingCurrentPage = 1;
+    let completedCurrentPage = 1;
+    const PAGE_SIZE = 50;
+
     function renderRows() {
       const body = document.getElementById("auditBody");
+      const paginationEl = document.getElementById("pendingPagination");
       const q = search.value.trim().toLowerCase();
 
       let rows = data.filter(row => {
         const matchesCategory = row["POSITION CATEGORY"] === activeCategory;
         const isComp = isRowComplete(row);
-        // Only pending (uncompleted) rows appear in the main panel table
         if (isComp) return false;
 
         const rowStatus = "Pending";
@@ -2377,12 +2482,21 @@ padding-top: 6px;
         });
       }
 
+      const totalItems = rows.length;
+      const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+      if (pendingCurrentPage > totalPages) pendingCurrentPage = 1;
+
+      const startIndex = (pendingCurrentPage - 1) * PAGE_SIZE;
+      const endIndex = Math.min(startIndex + PAGE_SIZE, totalItems);
+      const visibleRows = rows.slice(startIndex, endIndex);
+
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="${columns.length + 1}" style="text-align:center; padding: 28px; color: var(--muted); font-size: 13px;">All personnel audit items for ${activeCategory} are completed! Completed items have been transferred to the Completed Personnel Audit Records table below.</td></tr>`;
+        if (paginationEl) paginationEl.innerHTML = '';
         return;
       }
 
-      body.innerHTML = rows.map((row) => {
+      body.innerHTML = visibleRows.map((row) => {
         const isDirty = row._isDirty === true;
         const rowClass = isDirty ? 'bg-amber-50/30 border-l-4 border-l-amber-500' : '';
         const rowStyle = isDirty ? 'background-color: rgba(254, 243, 199, 0.35); border-left: 4px solid #f59e0b;' : '';
@@ -2397,12 +2511,29 @@ padding-top: 6px;
           </tr>
         `;
       }).join("");
+
+      if (paginationEl) {
+        paginationEl.innerHTML = `
+          <div>Showing <strong>${startIndex + 1}–${endIndex}</strong> of <strong>${totalItems}</strong> items</div>
+          <div class="flex items-center gap-2">
+            <button type="button" class="btn secondary" style="padding: 4px 10px; font-size: 11px;" ${pendingCurrentPage <= 1 ? 'disabled' : ''} onclick="changePendingPage(${pendingCurrentPage - 1})">Previous</button>
+            <span>Page ${pendingCurrentPage} of ${totalPages}</span>
+            <button type="button" class="btn secondary" style="padding: 4px 10px; font-size: 11px;" ${pendingCurrentPage >= totalPages ? 'disabled' : ''} onclick="changePendingPage(${pendingCurrentPage + 1})">Next</button>
+          </div>
+        `;
+      }
       initDatePickers();
+    }
+
+    function changePendingPage(newPage) {
+      pendingCurrentPage = newPage;
+      renderRows();
     }
 
     function renderCompletedRows() {
       const body = document.getElementById("completedAuditBody");
       const countBadge = document.getElementById("completedCountBadge");
+      const paginationEl = document.getElementById("completedPagination");
       if (!body) return;
 
       const q = search.value.trim().toLowerCase();
@@ -2432,12 +2563,21 @@ padding-top: 6px;
         });
       }
 
+      const totalItems = completedRows.length;
+      const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+      if (completedCurrentPage > totalPages) completedCurrentPage = 1;
+
+      const startIndex = (completedCurrentPage - 1) * PAGE_SIZE;
+      const endIndex = Math.min(startIndex + PAGE_SIZE, totalItems);
+      const visibleRows = completedRows.slice(startIndex, endIndex);
+
       if (!completedRows.length) {
         body.innerHTML = `<tr><td colspan="${columns.length + 1}" style="text-align:center; padding: 28px; color: var(--muted); font-size: 13px;">No completed personnel audit rows for ${activeCategory} yet. Fill in required fields for ${activeCategory} positions to complete a row.</td></tr>`;
+        if (paginationEl) paginationEl.innerHTML = '';
         return;
       }
 
-      body.innerHTML = completedRows.map((row) => {
+      body.innerHTML = visibleRows.map((row) => {
         const isDirty = row._isDirty === true;
         const rowClass = isDirty ? 'bg-amber-50/30 border-l-4 border-l-amber-500' : '';
         const rowStyle = isDirty ? 'background-color: rgba(254, 243, 199, 0.35); border-left: 4px solid #f59e0b;' : '';
@@ -2452,7 +2592,23 @@ padding-top: 6px;
           </tr>
         `;
       }).join("");
+
+      if (paginationEl) {
+        paginationEl.innerHTML = `
+          <div>Showing <strong>${startIndex + 1}–${endIndex}</strong> of <strong>${totalItems}</strong> items</div>
+          <div class="flex items-center gap-2">
+            <button type="button" class="btn secondary" style="padding: 4px 10px; font-size: 11px;" ${completedCurrentPage <= 1 ? 'disabled' : ''} onclick="changeCompletedPage(${completedCurrentPage - 1})">Previous</button>
+            <span>Page ${completedCurrentPage} of ${totalPages}</span>
+            <button type="button" class="btn secondary" style="padding: 4px 10px; font-size: 11px;" ${completedCurrentPage >= totalPages ? 'disabled' : ''} onclick="changeCompletedPage(${completedCurrentPage + 1})">Next</button>
+          </div>
+        `;
+      }
       initDatePickers();
+    }
+
+    function changeCompletedPage(newPage) {
+      completedCurrentPage = newPage;
+      renderCompletedRows();
     }
 
     function renderShortcutFilters() {
@@ -2462,6 +2618,8 @@ padding-top: 6px;
         select.addEventListener("change", () => {
           filters[key] = select.value;
           renderCompletionStickers();
+          pendingCurrentPage = 1;
+          completedCurrentPage = 1;
           renderRows();
           renderCompletedRows();
         });
@@ -2481,6 +2639,8 @@ padding-top: 6px;
 
     function setColumnFilter(key, value) {
       filters[key] = value;
+      pendingCurrentPage = 1;
+      completedCurrentPage = 1;
       renderCompletionStickers();
       renderRows();
       renderCompletedRows();
@@ -2489,6 +2649,8 @@ padding-top: 6px;
     function resetFilters() {
       Object.keys(filters).forEach(key => delete filters[key]);
       search.value = "";
+      pendingCurrentPage = 1;
+      completedCurrentPage = 1;
       document.querySelectorAll("th select, .column-filter").forEach(select => select.value = "");
       renderCompletionStickers();
       renderRows();
@@ -2498,6 +2660,8 @@ padding-top: 6px;
     function setPersonnelCategory(category) {
       activeCategory = category;
       filters["POSITION CATEGORY"] = "";
+      pendingCurrentPage = 1;
+      completedCurrentPage = 1;
       document.querySelectorAll('th select[aria-label="Filter POSITION CATEGORY"], .column-filter[data-key="POSITION CATEGORY"]').forEach(select => select.value = "");
       personnelTabs.forEach(button => button.classList.toggle("active", button.dataset.category === category));
       renderCompletionStickers();
@@ -2506,18 +2670,30 @@ padding-top: 6px;
     }
 
     function initDatePickers() {
-      if (typeof flatpickr === "function") {
-        try {
-          flatpickr(".audit-date-picker", {
-            dateFormat: "Y-m-d",
-            changeMonth: true,
-            changeYear: true,
-            clickOpens: true,
-            allowInput: false
-          });
-        } catch(e) {}
-      }
+      if (typeof flatpickr !== "function") return;
+      document.querySelectorAll(".audit-date-picker").forEach(el => {
+        if (el._flatpickr) {
+          el._flatpickr.destroy();
+        }
+      });
+      document.querySelectorAll(".audit-date-picker:not([disabled])").forEach(el => {
+        const isFutureOnly = el.classList.contains("tentative-date-picker") ||
+                             el.dataset.futureOnly === "true" ||
+                             (el.getAttribute("onchange") && el.getAttribute("onchange").includes("TENTATIVE DATE TO FILL-UP"));
+        flatpickr(el, {
+          dateFormat: "Y-m-d",
+          changeMonth: true,
+          changeYear: true,
+          clickOpens: true,
+          allowInput: false,
+          minDate: isFutureOnly ? "today" : undefined,
+          onChange: function(selectedDates, dateStr, instance) {
+            instance.element.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        });
+      });
     }
+
 
     function openRowModal(index) {
       const row = data[index];
@@ -2571,7 +2747,6 @@ padding-top: 6px;
                  ${!isFilled ? 'disabled tabindex="-1"' : 'readonly'}
                  onkeydown="return false;"
                  onpaste="return false;"
-                 ${isFilled ? 'onclick="if(typeof this.showPicker === \'function\') { this.showPicker(); }"' : ''}
                  onchange="updateRowField(${index}, 'FIRST DAY OF SERVICE', this.value)"
                  placeholder="${isFilled ? 'Select Date' : 'N/A'}"
                  style="${isFilled ? 'cursor: pointer;' : ''}" />
@@ -2581,7 +2756,8 @@ padding-top: 6px;
                  type="text"
                  value="${isFilled ? '' : (row["DATE OF VACANCY"] ?? '')}"
                  ${disabledAttr}
-                 ${!isFilled ? 'onkeydown="return false;" onpaste="return false;" onclick="if(typeof this.showPicker === \'function\') { this.showPicker(); }"' : ''}
+                 onkeydown="return false;"
+                 onpaste="return false;"
                  onchange="updateRowField(${index}, 'DATE OF VACANCY', this.value)"
                  placeholder="${isFilled ? 'N/A' : 'Select Date'}"
                  style="${!isFilled ? 'cursor: pointer;' : ''}" />
@@ -2599,11 +2775,13 @@ padding-top: 6px;
           </select>
         </label>
         <label>TENTATIVE DATE TO FILL-UP
-          <input class="field audit-date-picker ${disabledClass}"
+          <input class="field audit-date-picker tentative-date-picker ${disabledClass}"
+                 data-future-only="true"
                  type="text"
                  value="${isFilled ? '' : (row["TENTATIVE DATE TO FILL-UP"] ?? '')}"
                  ${disabledAttr}
-                 ${!isFilled ? 'onkeydown="return false;" onpaste="return false;" onclick="if(typeof this.showPicker === \'function\') { this.showPicker(); }"' : ''}
+                 onkeydown="return false;"
+                 onpaste="return false;"
                  onchange="updateRowField(${index}, 'TENTATIVE DATE TO FILL-UP', this.value)"
                  placeholder="${isFilled ? 'N/A' : 'Select Date'}"
                  style="${!isFilled ? 'cursor: pointer;' : ''}" />
@@ -2687,8 +2865,19 @@ padding-top: 6px;
       const outcomeContainer = document.getElementById('outcome-rows');
       if (outcomeContainer) outcomeContainer.innerHTML = '';
 
+      // Reset error / loading banners from any previous attempt
+      const errorBanner = document.getElementById('intervention-error-banner');
+      if (errorBanner) errorBanner.classList.add('hidden');
+      const loadingBar = document.getElementById('intervention-submitting');
+      if (loadingBar) loadingBar.classList.add('hidden');
+      const submitBtn = document.getElementById('btn-submit-intervention');
+      if (submitBtn) { submitBtn.disabled = false; }
+      const submitText = document.getElementById('btn-submit-text');
+      if (submitText) { submitText.textContent = 'Submit Strategy'; }
+
       // Add one default outcome field
       addOutcomeRow();
+      initDatePickers();
 
       modal.classList.remove('hidden');
       setTimeout(() => {
@@ -2837,12 +3026,13 @@ padding-top: 6px;
     async function submitInterventionForm(event) {
       event.preventDefault();
 
-      const area_of_concern = document.getElementById('int-concern').value;
-      const intervention_to_undertake = document.getElementById('int-action').value;
-      const responsible_office = document.getElementById('int-office').value;
-      const target_date = document.getElementById('int-date').value;
-      const remarks = document.getElementById('int-remarks').value;
+      const area_of_concern        = document.getElementById('int-concern').value.trim();
+      const intervention_to_undertake = document.getElementById('int-action').value.trim();
+      const responsible_office     = document.getElementById('int-office').value.trim();
+      const target_date            = document.getElementById('int-date').value.trim();
+      const remarks                = document.getElementById('int-remarks').value.trim();
 
+      // Collect non-empty Expected Outcomes
       const outcomeInputs = document.getElementsByName('outcome_item');
       const expected_outcomes = [];
       for (let input of outcomeInputs) {
@@ -2850,6 +3040,37 @@ padding-top: 6px;
           expected_outcomes.push(input.value.trim());
         }
       }
+
+      // Client-side validation
+      const errorBanner = document.getElementById('intervention-error-banner');
+      const errorMsg    = document.querySelector('#intervention-error-msg span');
+      const setError = (msg) => {
+        if (errorBanner && errorMsg) {
+          errorMsg.textContent = msg;
+          errorBanner.classList.remove('hidden');
+        }
+      };
+      const clearError = () => {
+        if (errorBanner) errorBanner.classList.add('hidden');
+      };
+
+      clearError();
+
+      if (!area_of_concern) { setError('Area of Concern is required.'); return; }
+      if (!intervention_to_undertake) { setError('Intervention to be Undertaken is required.'); return; }
+      if (!responsible_office) { setError('Responsible Office is required.'); return; }
+      if (!target_date) { setError('Target Completion Date is required.'); return; }
+
+      // Lock form during submission
+      const submitBtn   = document.getElementById('btn-submit-intervention');
+      const cancelBtn   = document.getElementById('btn-cancel-intervention');
+      const submitText  = document.getElementById('btn-submit-text');
+      const loadingBar  = document.getElementById('intervention-submitting');
+
+      if (submitBtn)  { submitBtn.disabled = true; }
+      if (cancelBtn)  { cancelBtn.disabled = true; }
+      if (submitText) { submitText.textContent = 'Saving...'; }
+      if (loadingBar) { loadingBar.classList.remove('hidden'); }
 
       const payload = {
         area_of_concern,
@@ -2866,23 +3087,84 @@ padding-top: 6px;
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify(payload)
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Server error saving intervention');
+          throw new Error(errData.error || `Server error (${res.status})`);
         }
 
         closeInterventionModal();
-        alert('Intervention Strategy added successfully!');
+        showInterventionToast('Intervention Strategy added successfully!', 'success');
         loadInterventions();
+
       } catch (err) {
         console.error('Error submitting intervention strategy:', err);
-        alert('Error: ' + err.message);
+        setError(err.message || 'An unexpected error occurred. Please try again.');
+      } finally {
+        // Unlock form
+        if (submitBtn)  { submitBtn.disabled = false; }
+        if (cancelBtn)  { cancelBtn.disabled = false; }
+        if (submitText) { submitText.textContent = 'Submit Strategy'; }
+        if (loadingBar) { loadingBar.classList.add('hidden'); }
       }
+    }
+
+    /**
+     * showInterventionToast — non-blocking toast notification.
+     * @param {string} message
+     * @param {'success'|'error'} type
+     */
+    function showInterventionToast(message, type = 'success') {
+      // Remove existing toast if present
+      const existing = document.getElementById('intervention-toast');
+      if (existing) existing.remove();
+
+      const isSuccess = type === 'success';
+      const toast = document.createElement('div');
+      toast.id = 'intervention-toast';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      toast.className = [
+        'fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-5 py-3.5',
+        'rounded-xl shadow-xl border text-sm font-semibold',
+        'transform translate-y-2 opacity-0 transition-all duration-300',
+        isSuccess
+          ? 'bg-teal-600 text-white border-teal-700'
+          : 'bg-rose-600 text-white border-rose-700'
+      ].join(' ');
+
+      toast.innerHTML = `
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          ${isSuccess
+            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>'
+            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12A9 9 0 113 12a9 9 0 0118 0z"></path>'
+          }
+        </svg>
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()" class="ml-2 text-white/70 hover:text-white transition-colors" aria-label="Dismiss">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      `;
+
+      document.body.appendChild(toast);
+
+      // Animate in
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          toast.classList.remove('translate-y-2', 'opacity-0');
+          toast.classList.add('translate-y-0', 'opacity-100');
+        });
+      });
+
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
     }
 
     personnelTabs.forEach((button) => {
@@ -3381,6 +3663,66 @@ padding-top: 6px;
       }
     }
 
+    function checkUnsavedChangesOnRefreshPrompt() {
+      const stored = localStorage.getItem('dpa_staged_edits');
+      if (!stored) return;
+      let staged;
+      try {
+        staged = JSON.parse(stored);
+      } catch (e) {
+        return;
+      }
+      const keys = Object.keys(staged);
+      const count = keys.length;
+      if (count > 0) {
+        stagedEdits = staged;
+        const modal = document.getElementById('unsavedChangesModal');
+        const countEl = document.getElementById('unsavedPromptCount');
+        const previewEl = document.getElementById('unsavedItemsPreview');
+        if (countEl) countEl.textContent = count;
+        if (previewEl) {
+          previewEl.innerHTML = keys.slice(0, 5).map(k => `
+            <div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/60 font-mono text-[11px]">
+              <span class="font-bold text-slate-700 dark:text-slate-300">Item ${k}</span>
+              <span class="text-amber-600 dark:text-amber-400 font-semibold px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60">Uncommitted Edits</span>
+            </div>
+          `).join('') + (keys.length > 5 ? `<div class="text-[10px] text-slate-400 pt-1.5 font-semibold">+ ${keys.length - 5} more item(s)</div>` : '');
+        }
+        if (modal) {
+          modal.classList.add('open');
+          modal.style.setProperty('display', 'flex', 'important');
+          modal.style.setProperty('z-index', '999999', 'important');
+        }
+      }
+    }
+
+    function closeUnsavedChangesModal() {
+      const modal = document.getElementById('unsavedChangesModal');
+      if (modal) {
+        modal.classList.remove('open');
+        modal.style.setProperty('display', 'none', 'important');
+      }
+    }
+
+    async function saveAllChangesAndClosePrompt() {
+      closeUnsavedChangesModal();
+      await saveAllChanges();
+    }
+
+    function discardUnsavedChangesPrompt() {
+      localStorage.removeItem('dpa_staged_edits');
+      stagedEdits = {};
+      data.forEach(row => {
+        delete row._isDirty;
+      });
+      closeUnsavedChangesModal();
+      updateSaveChangesUI();
+      if (typeof renderRows === 'function') renderRows();
+      if (typeof renderCompletedRows === 'function') renderCompletedRows();
+      if (typeof renderCompletionStickers === 'function') renderCompletionStickers();
+      if (typeof updateHomeKPIs === 'function') updateHomeKPIs();
+    }
+
     let regionDivData = { regions: [], divisions: [] };
 
     async function loadDirectories() {
@@ -3393,7 +3735,8 @@ padding-top: 6px;
             regionSelect.innerHTML = '<option value="">Select Region</option>';
             regionDivData.regions.forEach(reg => {
               const opt = document.createElement('option');
-              opt.value = reg.id;
+              opt.value = reg.name;
+              opt.dataset.regionId = reg.id;
               opt.textContent = reg.name;
               regionSelect.appendChild(opt);
             });
@@ -3432,6 +3775,130 @@ padding-top: 6px;
           <span>${position}</span>
           <span>${location}</span>
         `;
+
+        const scopeHint = document.getElementById('collab-scope-hint');
+        if (scopeHint) {
+          scopeHint.textContent = `Collaborators inherit scope: ${location}`;
+        }
+        loadCollaborators();
+      }
+    }
+
+    async function loadCollaborators() {
+      const token = localStorage.getItem('dpa_token');
+      if (!token) return;
+      try {
+        const res = await fetch('/api/collaborators', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const result = await res.json();
+          const listContainer = document.getElementById('collaborators-list-container');
+          if (listContainer && result.success && Array.isArray(result.collaborators)) {
+            if (result.collaborators.length === 0) {
+              listContainer.innerHTML = '<p style="font-size: 12px; color: var(--muted); margin: 0;">No active collaborators yet.</p>';
+            } else {
+              listContainer.innerHTML = result.collaborators.map(c => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(15, 95, 183, 0.04); border: 1px solid var(--line); border-radius: 12px;">
+                  <div>
+                    <strong style="font-size: 13px; color: var(--ink); display: block;">${c.first_name} ${c.last_name}</strong>
+                    <span style="font-size: 11px; color: var(--muted);">${c.position || 'Collaborator'} • ${c.email}</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="pill green" style="font-size: 10px;">ACTIVE</span>
+                    <button type="button" onclick="deleteCollaborator('${c.id}')" style="background: none; border: none; color: #dc2626; font-size: 12px; font-weight: 700; cursor: pointer; padding: 2px 6px;">Remove</button>
+                  </div>
+                </div>
+              `).join('');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load collaborators:', err);
+      }
+    }
+
+    async function inviteCollaborator() {
+      const token = localStorage.getItem('dpa_token');
+      if (!token) {
+        alert('You must be logged in to invite collaborators.');
+        return;
+      }
+
+      const firstNameEl = document.getElementById('collab-first-name');
+      const lastNameEl = document.getElementById('collab-last-name');
+      const positionEl = document.getElementById('collab-position');
+      const emailEl = document.getElementById('collab-email');
+      const btn = document.getElementById('btn-invite-collaborator');
+
+      const firstName = firstNameEl ? firstNameEl.value.trim() : '';
+      const lastName = lastNameEl ? lastNameEl.value.trim() : '';
+      const position = positionEl ? positionEl.value.trim() : '';
+      const email = emailEl ? emailEl.value.trim() : '';
+
+      if (!firstName || !lastName || !email) {
+        alert('Please fill out First Name, Last Name, and Email address.');
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Inviting...';
+      }
+
+      try {
+        const res = await fetch('/api/collaborators/invite', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            first_name: firstName,
+            last_name: lastName,
+            position: position,
+            email: email
+          })
+        });
+
+        const result = await res.json();
+        if (res.ok && result.success) {
+          alert(`Success! Collaborator ${firstName} ${lastName} has been invited.\n\nLogin Email: ${email}\nDefault Password: 123456`);
+          if (firstNameEl) firstNameEl.value = '';
+          if (lastNameEl) lastNameEl.value = '';
+          if (positionEl) positionEl.value = '';
+          if (emailEl) emailEl.value = '';
+          loadCollaborators();
+        } else {
+          alert(`Failed to invite collaborator: ${result.error || 'Unknown error'}`);
+        }
+      } catch (err) {
+        alert(`An error occurred: ${err.message}`);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Invite collaborator';
+        }
+      }
+    }
+
+    async function deleteCollaborator(id) {
+      if (!confirm('Are you sure you want to remove this collaborator? Their access will be revoked.')) return;
+      const token = localStorage.getItem('dpa_token');
+      if (!token) return;
+      try {
+        const res = await fetch(`/api/collaborators/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+          loadCollaborators();
+        } else {
+          alert(`Failed to remove collaborator: ${result.error || 'Unknown error'}`);
+        }
+      } catch (err) {
+        alert(`An error occurred: ${err.message}`);
       }
     }
 
@@ -3464,14 +3931,18 @@ padding-top: 6px;
             }
 
             data = mergeStagedEdits(data);
+            if (typeof invalidateUniqueValuesCache === 'function') invalidateUniqueValuesCache();
             if (typeof renderHeader === 'function') renderHeader();
             if (typeof renderShortcutFilters === 'function') renderShortcutFilters();
+
             if (typeof renderCompletionStickers === 'function') renderCompletionStickers();
             if (typeof updateHomeKPIs === 'function') updateHomeKPIs();
             if (typeof renderRows === 'function') renderRows();
             if (typeof renderCompletedRows === 'function') renderCompletedRows();
             if (typeof updateAgingChart === 'function') updateAgingChart();
             if (typeof updateSaveChangesUI === 'function') updateSaveChangesUI();
+            checkUnsavedChangesOnRefreshPrompt();
+            setTimeout(checkUnsavedChangesOnRefreshPrompt, 300);
 
             return;
           }
@@ -3490,16 +3961,20 @@ padding-top: 6px;
     const regDivisionSelect = document.getElementById('reg-division');
     if (regRegionSelect && regDivisionSelect) {
       regRegionSelect.addEventListener('change', () => {
-        const selectedRegionId = regRegionSelect.value;
+        const selectedOption = regRegionSelect.options[regRegionSelect.selectedIndex];
+        const selectedRegionId = selectedOption ? selectedOption.dataset.regionId : '';
+        const selectedRegionName = regRegionSelect.value;
         regDivisionSelect.innerHTML = '<option value="">Select Division</option>';
-        if (!selectedRegionId) {
+        if (!selectedRegionName) {
           regDivisionSelect.disabled = true;
           return;
         }
-        const filteredDivisions = (regionDivData.divisions || []).filter(d => d.region_id === selectedRegionId);
+        const filteredDivisions = (regionDivData.divisions || []).filter(d => 
+          d.region_id === selectedRegionId || d.region_id === selectedRegionName
+        );
         filteredDivisions.forEach(div => {
           const opt = document.createElement('option');
-          opt.value = div.id;
+          opt.value = div.office_name;
           opt.textContent = div.office_name;
           regDivisionSelect.appendChild(opt);
         });

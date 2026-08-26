@@ -90,13 +90,6 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    if (normalizedRole === "COLLABORATOR" && !host_hrmo_id) {
-      return res.status(400).json({
-        success: false,
-        error: "Host HRMO ID is required when registering a Collaborator profile."
-      });
-    }
-
     // Begin DB Transaction
     await client.query("BEGIN");
 
@@ -110,37 +103,19 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    let targetRegionId = region_id;
-    let targetDivisionId = division_id;
-
-    // If Collaborator, verify host HRMO and dynamically adopt host regional boundaries
-    if (normalizedRole === "COLLABORATOR") {
-      const hrmoRes = await client.query("SELECT id, region_id, division_id FROM host_hrmos WHERE id = $1", [host_hrmo_id]);
-      if (hrmoRes.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({
-          success: false,
-          error: "Specified Host HRMO record does not exist."
-        });
-      }
-      const hostHrmo = hrmoRes.rows[0];
-      targetRegionId = hostHrmo.region_id;
-      targetDivisionId = hostHrmo.division_id;
-    }
-
     // Hash password with bcrypt
     const saltRounds = 10;
     const password_hash = await bcrypt.hash(password, saltRounds);
 
-    // Insert into `users` table
+    // Insert into `users` table directly with plain-text geography names
     const insertUserSql = `
       INSERT INTO users (region_id, division_id, position, first_name, last_name, deped_email, password_hash, passcode, role)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id, region_id, division_id, position, first_name, last_name, deped_email, role, is_active, created_at;
     `;
     const userRes = await client.query(insertUserSql, [
-      targetRegionId,
-      targetDivisionId,
+      region_id.trim(),
+      division_id.trim(),
       position.trim(),
       first_name.trim(),
       last_name.trim(),
@@ -150,19 +125,6 @@ router.post("/register", async (req, res) => {
       normalizedRole
     ]);
     const user = userRes.rows[0];
-
-    // Role-specific profile table insertion
-    if (normalizedRole === "HRMO") {
-      await client.query(
-        "INSERT INTO host_hrmos (user_id, region_id, division_id) VALUES ($1, $2, $3)",
-        [user.id, user.region_id, user.division_id]
-      );
-    } else if (normalizedRole === "COLLABORATOR") {
-      await client.query(
-        "INSERT INTO collaborators (user_id, host_hrmo_id, region_id, division_id) VALUES ($1, $2, $3, $4)",
-        [user.id, host_hrmo_id, user.region_id, user.division_id]
-      );
-    }
 
     await client.query("COMMIT");
 
@@ -291,17 +253,20 @@ router.post("/login", async (req, res) => {
 
 /**
  * GET /api/auth/me
- * Profile details for authenticated session
+ * Profile details for authenticated session.
+ * region_id and division_id are plain-text VARCHAR — no relational JOINs needed.
  */
 router.get("/me", verifyToken, async (req, res) => {
   try {
     const userRes = await db.query(
-      `SELECT u.id, u.region_id, r.name as region_name, u.division_id, d.office_name as division_office_name,
-              u.position, u.first_name, u.last_name, u.deped_email, u.role, u.is_active, u.created_at
-       FROM users u
-       JOIN regions r ON u.region_id = r.id
-       JOIN division_offices d ON u.division_id = d.id
-       WHERE u.id = $1`,
+      `SELECT id,
+              region_id,
+              region_id   AS region_name,
+              division_id,
+              division_id AS division_office_name,
+              position, first_name, last_name, deped_email, role, is_active, created_at
+       FROM users
+       WHERE id = $1`,
       [req.user.id]
     );
 
