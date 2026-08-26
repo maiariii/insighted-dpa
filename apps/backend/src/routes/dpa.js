@@ -1,10 +1,30 @@
 import express from "express";
 import { verifyToken } from "./auth.js";
-import { query } from "../db/index.js";
+import { query, pool } from "../db/index.js";
 import { validateBody } from "../middleware/validate.js";
 import { InterventionCreateSchema } from "@project/shared";
 
 const router = express.Router();
+
+function normalizeFilterParam(val) {
+  if (!val || typeof val !== "string") return null;
+  const trimmed = val.trim();
+  const lower = trimmed.toLowerCase();
+  if (
+    !trimmed ||
+    lower === "all" ||
+    lower === "all regions" ||
+    lower === "all statuses" ||
+    lower === "all divisions" ||
+    lower === "all offices" ||
+    lower === "undefined" ||
+    lower === "null"
+  ) {
+    return null;
+  }
+  return trimmed;
+}
+
 
 export const GET_KPI_METRICS_SQL = `
   SELECT
@@ -13,7 +33,7 @@ export const GET_KPI_METRICS_SQL = `
     COALESCE(SUM(CASE WHEN (item_status != 'Audited' AND (position_status IS NULL OR position_status != 'FILLED') AND (is_audited IS NULL OR is_audited = false)) OR item_status IS NULL THEN 1 ELSE 0 END), 0)::int AS remaining_items
   FROM personnel_audits
   WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
-    AND ($2::varchar IS NULL OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
+    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
          OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%');
 `;
 
@@ -23,7 +43,7 @@ export const GET_AGING_DISTRIBUTION_SQL = `
     COUNT(*)::int AS count
   FROM personnel_audits
   WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
-    AND ($2::varchar IS NULL OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
+    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
          OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%')
     AND position_status = 'UNFILLED'
   GROUP BY vacancy_aging_status
@@ -36,7 +56,7 @@ export const GET_REASONS_UNFILLED_SQL = `
     COUNT(*)::int AS count
   FROM personnel_audits
   WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
-    AND ($2::varchar IS NULL OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
+    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
          OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%')
     AND position_status = 'UNFILLED'
   GROUP BY reason_for_vacancy
@@ -55,36 +75,47 @@ export const GET_KPI_METRICS_SQLITE = `
 
 /**
  * GET /api/personnel-audit/records
+ * Returns personnel audit records strictly filtered by user's region and division in JWT payload.
  */
-router.get(["/records", "/personnel-audit/records", "/api/personnel-audit/records", "/insighted-dpa/api/personnel-audit/records"], verifyToken, async (req, res) => {
+router.get(["/", "/records", "/personnel-audit/records", "/api/personnel-audit/records", "/insighted-dpa/api/personnel-audit/records"], verifyToken, async (req, res) => {
   try {
     const { region_id, division_id, page, limit, offset: queryOffset, item_status, position_category, search } = req.query;
-    const targetRegion = region_id || req.user.region_id;
-    const targetDivision = division_id || req.user.division_id;
+
+    const userRegion   = normalizeFilterParam(req.user?.region_id);
+    const userDivision = normalizeFilterParam(req.user?.division_id);
+    const queryRegion   = normalizeFilterParam(region_id);
+    const queryDivision = normalizeFilterParam(division_id);
+
+    const targetRegion   = userRegion   || queryRegion;
+    const targetDivision = userDivision || queryDivision;
+
+    const cleanStatus   = normalizeFilterParam(item_status);
+    const cleanCategory = normalizeFilterParam(position_category);
+    const cleanSearch   = (search && typeof search === "string" && search.trim()) ? search.trim() : null;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.max(1, Math.min(10000, parseInt(limit, 10) || 5000));
     const offsetNum = queryOffset !== undefined ? Math.max(0, parseInt(queryOffset, 10) || 0) : (pageNum - 1) * limitNum;
 
-    const db = req.app.get("dbClient");
+    const db = req.app.get("dbClient") || pool;
 
     if (db && typeof db.query === "function") {
       let whereConditions = [
         `($1::varchar IS NULL OR pa.region_id = $1 OR pa.region_id ILIKE '%' || $1 || '%')`,
-        `($2::varchar IS NULL OR pa.division_id = $2 OR pa.division_id ILIKE '%' || $2 || '%' OR $2 ILIKE '%' || REPLACE(pa.division_id, 'Division of ', '') || '%')`
+        `($2::varchar IS NULL OR pa.division_id::text = $2::text OR pa.division_id = $2 OR pa.division_id ILIKE '%' || $2 || '%' OR $2 ILIKE '%' || REPLACE(pa.division_id, 'Division of ', '') || '%')`
       ];
       let sqlParams = [targetRegion, targetDivision];
 
-      if (item_status) {
-        sqlParams.push(item_status);
-        whereConditions.push(`pa.item_status = $${sqlParams.length}`);
+      if (cleanStatus) {
+        sqlParams.push(cleanStatus);
+        whereConditions.push(`(pa.item_status ILIKE $${sqlParams.length} OR pa.position_status ILIKE $${sqlParams.length})`);
       }
-      if (position_category) {
-        sqlParams.push(position_category);
-        whereConditions.push(`pa.position_category = $${sqlParams.length}`);
+      if (cleanCategory) {
+        sqlParams.push(cleanCategory);
+        whereConditions.push(`pa.position_category ILIKE $${sqlParams.length}`);
       }
-      if (search) {
-        sqlParams.push(`%${search}%`);
+      if (cleanSearch) {
+        sqlParams.push(`%${cleanSearch}%`);
         whereConditions.push(`(pa.item_number ILIKE $${sqlParams.length} OR pa.position_title ILIKE $${sqlParams.length})`);
       }
 
@@ -153,19 +184,20 @@ router.get(["/records", "/personnel-audit/records", "/api/personnel-audit/record
 
 /**
  * GET /api/personnel-audit/kpis
+ * Secured by verifyToken middleware so region_id and division_id are extracted from authenticated JWT.
  */
-router.get(["/kpis", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/insighted-dpa/api/personnel-audit/kpis"], verifyToken, async (req, res) => {
+router.get(["/kpis", "/kpi-metrics", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/insighted-dpa/api/personnel-audit/kpis"], verifyToken, async (req, res) => {
   try {
-    const db = req.app.get("dbClient");
+    const db = req.app.get("dbClient") || pool;
 
-    const userRegion   = req.user.region_id   || null;
-    const userDivision = req.user.division_id  || null;
+    const userRegion   = normalizeFilterParam(req.user?.region_id);
+    const userDivision = normalizeFilterParam(req.user?.division_id);
 
-    const rawRegion  = req.query.region  && typeof req.query.region  === "string" ? req.query.region.trim()  : null;
-    const rawOffice  = req.query.office  && typeof req.query.office  === "string" ? req.query.office.trim()  : null;
+    const rawRegion  = normalizeFilterParam(req.query.region);
+    const rawOffice  = normalizeFilterParam(req.query.office);
 
-    const filterRegion   = rawRegion  || userRegion;
-    const filterDivision = rawOffice  || userDivision;
+    const filterRegion   = userRegion   || rawRegion;
+    const filterDivision = userDivision || rawOffice;
 
     const params = [filterRegion, filterDivision];
 
@@ -240,6 +272,7 @@ router.get(["/kpis", "/personnel-audit/kpis", "/api/personnel-audit/kpis", "/ins
   }
 });
 
+
 /**
  * PUT /api/personnel-audit/:id
  */
@@ -258,6 +291,20 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
     const db = req.app.get("dbClient");
 
     if (db && typeof db.query === "function") {
+      // Authorization boundary check: enforce regional/divisional scope for non-admin users
+      if (req.user && (req.user.region_id || req.user.division_id)) {
+        const checkSql = `SELECT region_id, division_id FROM personnel_audits WHERE id::text = $1 OR item_number = $1;`;
+        const checkRes = await db.query(checkSql, [id]);
+        if (checkRes.rows && checkRes.rows.length > 0) {
+          const rec = checkRes.rows[0];
+          if (req.user.region_id && rec.region_id && rec.region_id !== req.user.region_id && !rec.region_id.includes(req.user.region_id)) {
+            return res.status(403).json({ success: false, error: "Forbidden: Cannot modify records outside assigned region." });
+          }
+          if (req.user.division_id && rec.division_id && rec.division_id !== req.user.division_id && !rec.division_id.includes(req.user.division_id)) {
+            return res.status(403).json({ success: false, error: "Forbidden: Cannot modify records outside assigned division." });
+          }
+        }
+      }
       const allowedFields = [
         "region_id",
         "division_id",
@@ -288,6 +335,14 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
       if (cleanPayload.position_status === "UNFILLED") {
         cleanPayload.name_of_incumbent = null;
         cleanPayload.first_day_of_service = null;
+        // A vacancy record counts as a finalized audit once its required
+        // vacancy fields (reason, status, tentative fill-up date) are all
+        // captured — not only once the position is FILLED. This mirrors the
+        // client-side computation and is what actually moves the row into the
+        // Finalized / Audited Personnel Records table on the next fetch.
+        cleanPayload.is_audited = !!(
+          cleanPayload.reason_for_vacancy && cleanPayload.status_of_vacancy && cleanPayload.tentative_date_to_fill_up
+        );
       } else if (cleanPayload.position_status === "FILLED") {
         if (cleanPayload.name_of_incumbent) {
           cleanPayload.name_of_incumbent = String(cleanPayload.name_of_incumbent).toUpperCase();
@@ -296,7 +351,7 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         cleanPayload.status_of_vacancy = null;
         cleanPayload.date_of_vacancy = null;
         cleanPayload.tentative_date_to_fill_up = null;
-        cleanPayload.is_audited = true;
+        cleanPayload.is_audited = !!(cleanPayload.name_of_incumbent && cleanPayload.first_day_of_service);
       }
 
       const setClauses = [];
@@ -379,16 +434,41 @@ router.post(
       const userId = req.user.id;
       const userName = `${req.user.first_name || ''} ${req.user.last_name || 'HRMO'}`.trim() || "Personnel Auditor";
 
-      const outcomesArray = Array.isArray(expected_outcomes)
-        ? expected_outcomes.filter(o => o && String(o).trim() !== "")
-        : [];
+      let outcomesData = [];
+      if (Array.isArray(expected_outcomes)) {
+        outcomesData = expected_outcomes.filter(o => o && String(o).trim() !== "");
+      } else if (typeof expected_outcomes === "object" && expected_outcomes !== null) {
+        outcomesData = expected_outcomes;
+      } else if (typeof expected_outcomes === "string" && expected_outcomes.trim() !== "") {
+        outcomesData = [{ text: expected_outcomes.trim() }];
+      }
 
-      const initialRemarksLog = remarks && String(remarks).trim() !== ""
-        ? [{ text: String(remarks).trim(), by: userName, at: new Date().toISOString() }]
-        : [];
+      let remarksData = [];
+      if (Array.isArray(remarks)) {
+        remarksData = remarks.filter(r => r && String(r).trim() !== "");
+      } else if (typeof remarks === "object" && remarks !== null) {
+        remarksData = remarks;
+      } else if (typeof remarks === "string" && remarks.trim() !== "") {
+        remarksData = [{ text: remarks.trim(), by: userName, at: new Date().toISOString() }];
+      }
 
       const db = req.app.get("dbClient");
       const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
+
+      // Idempotency safety net: if an identical intervention from this user was just
+      // inserted moments ago (e.g. a double-fired submit slipping past the client-side
+      // guard), return the existing row instead of creating a second one.
+      const recentDuplicateCheck = await queryFn(
+        `SELECT * FROM other_interventions
+         WHERE user_id = $1 AND area_of_concern = $2 AND intervention_to_undertake = $3
+           AND responsible_office = $4 AND target_date = $5
+           AND created_at > NOW() - INTERVAL '10 seconds'
+         ORDER BY created_at ASC LIMIT 1;`,
+        [userId, String(area_of_concern).trim(), String(intervention_to_undertake).trim(), String(responsible_office).trim(), target_date]
+      );
+      if (recentDuplicateCheck.rows.length > 0) {
+        return res.status(201).json({ success: true, intervention: recentDuplicateCheck.rows[0] });
+      }
 
       const insertQuery = `
         INSERT INTO other_interventions
@@ -403,14 +483,43 @@ router.post(
         String(intervention_to_undertake).trim(),
         String(responsible_office).trim(),
         target_date,
-        JSON.stringify(outcomesArray),
-        JSON.stringify(initialRemarksLog)
+        JSON.stringify(outcomesData),
+        JSON.stringify(remarksData)
       ]);
 
       res.status(201).json({ success: true, intervention: result.rows[0] });
     } catch (err) {
       console.error("Error saving intervention:", err);
       res.status(500).json({ error: "Internal database error saving intervention" });
+    }
+  }
+);
+
+/**
+ * DELETE /api/personnel-audit/interventions/:id
+ */
+router.delete(
+  ["/interventions/:id", "/personnel-audit/interventions/:id", "/api/personnel-audit/interventions/:id", "/insighted-dpa/api/personnel-audit/interventions/:id"],
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || null;
+      const db = req.app.get("dbClient");
+      const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
+
+      const result = await queryFn(
+        "DELETE FROM other_interventions WHERE (id::text = $1 OR id = $1) AND (user_id = $2 OR $2 IS NULL) RETURNING id;",
+        [id, userId]
+      );
+
+      if (result.rows && result.rows.length > 0) {
+        return res.json({ success: true, message: "Intervention deleted successfully.", id: result.rows[0].id });
+      }
+      return res.status(404).json({ success: false, error: "Intervention record not found or unauthorized." });
+    } catch (err) {
+      console.error("Error deleting intervention:", err);
+      res.status(500).json({ success: false, error: "Failed to delete intervention record." });
     }
   }
 );

@@ -90,6 +90,13 @@ export const API = {
     return this.request('/personnel-audit/interventions');
   },
 
+  async createIntervention(payload) {
+    return this.request('/personnel-audit/interventions', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
   async updateRecord(id, fields) {
     return this.request(`/personnel-audit/${id}`, {
       method: 'PUT',

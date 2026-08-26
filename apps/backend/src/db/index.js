@@ -130,6 +130,22 @@ export async function runMigration() {
     await pool.query(createInterventionsTableSQL);
   }
 
+  try {
+    const dedupeMigrationPath = path.join(__dirname, "migrations/004_dedupe_interventions.sql");
+    const dedupeSql = fs.readFileSync(dedupeMigrationPath, "utf8");
+    await pool.query(dedupeSql);
+  } catch (dedupeErr) {
+    console.error("Error executing interventions de-duplication script:", dedupeErr);
+  }
+
+  try {
+    const backfillAuditedPath = path.join(__dirname, "migrations/005_backfill_audited_flag.sql");
+    const backfillAuditedSql = fs.readFileSync(backfillAuditedPath, "utf8");
+    await pool.query(backfillAuditedSql);
+  } catch (backfillErr) {
+    console.error("Error executing is_audited backfill script:", backfillErr);
+  }
+
   console.log("✅ Database schema migration executed successfully.");
 }
 

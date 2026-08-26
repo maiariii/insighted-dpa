@@ -17,11 +17,19 @@ export const InterventionCreateSchema = z.object({
     .min(1, "Target date is required")
     .refine((val) => !isNaN(Date.parse(val)), {
       message: "Invalid target date format. Must be a valid ISO date string."
+    })
+    .refine((val) => {
+      const parsed = new Date(val);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      return parsed.getTime() > todayEnd.getTime();
+    }, {
+      message: "Target date must be a future date (after today)."
     }),
   expected_outcomes: z
-    .union([z.array(z.any()), z.record(z.any())])
+    .union([z.array(z.any()), z.record(z.any()), z.string()])
     .optional(),
   remarks: z
-    .union([z.array(z.any()), z.record(z.any())])
+    .union([z.array(z.any()), z.record(z.any()), z.string()])
     .optional()
 });

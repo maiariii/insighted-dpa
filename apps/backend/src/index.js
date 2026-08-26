@@ -14,17 +14,28 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(express.json());
-
 // Attach DB client pool to Express application instance
 app.set("dbClient", pool);
 
 // Execute database schema migrations on server startup
-if (typeof db.runMigration === "function") {
+if (db && typeof db.runMigration === "function") {
   db.runMigration().catch(err => {
     console.error("Failed to run DB auto-migration on startup:", err);
   });
 }
+
+
+// Normalize /insighted-dpa subpath prefix for incoming requests
+app.use((req, res, next) => {
+  if (req.url.startsWith("/insighted-dpa")) {
+    req.url = req.url.replace(/^\/insighted-dpa/, "") || "/";
+  }
+  next();
+});
+
+// Enable robust JSON & URL-encoded body parsing
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Enable CORS for development
 app.use((req, res, next) => {
@@ -33,49 +44,46 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static assets from public directory and frontend directory
+// Serve compiled React application static assets & public assets
+const frontendDist = path.join(__dirname, "../../frontend/dist");
 const rootPublic = path.join(__dirname, "../../../public");
-const backendPublic = path.join(__dirname, "../public");
-const frontendDir = path.join(__dirname, "../../frontend");
-const rootDir = path.join(__dirname, "../../..");
 
-if (fs.existsSync(rootPublic)) app.use(express.static(rootPublic, { index: false }));
-if (fs.existsSync(backendPublic)) app.use(express.static(backendPublic, { index: false }));
-if (fs.existsSync(frontendDir)) app.use(express.static(frontendDir, { index: false }));
-app.use(express.static(rootDir, { index: false }));
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+}
+if (fs.existsSync(rootPublic)) {
+  app.use(express.static(rootPublic));
+}
 
-// Mount Auth & DPA API routes with /api prefix
+// Mount Auth, DPA, and Collaborator API routers cleanly across all path variations
 app.use("/api/auth", authRouter);
-app.use("/api/personnel-audit", dpaRouter);
-app.use("/api/collaborators", collaboratorsRouter);
-
-// Direct mounts for backward compatibility
 app.use("/auth", authRouter);
-app.use("/personnel-audit", dpaRouter);
-app.use("/collaborators", collaboratorsRouter);
+app.use("/insighted-dpa/api/auth", authRouter);
 
-// Serve dashboard application at root URL
-app.get("/", (req, res) => {
+app.use("/api/personnel-audit", dpaRouter);
+app.use("/personnel-audit", dpaRouter);
+app.use("/insighted-dpa/api/personnel-audit", dpaRouter);
+
+app.use("/api/collaborators", collaboratorsRouter);
+app.use("/collaborators", collaboratorsRouter);
+app.use("/insighted-dpa/api/collaborators", collaboratorsRouter);
+
+// Fallback: Return React SPA index.html for all non-API client routes
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/") || req.path.startsWith("/auth/") || req.path.startsWith("/personnel-audit/") || req.path.startsWith("/collaborators/")) {
+    return next();
+  }
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
-  
-  const publicHtml = path.join(rootDir, "public", "index.html");
-  const frontendHtml = path.join(frontendDir, "index.html");
-  const fallbackHtml = path.join(rootDir, "index.html");
-  if (fs.existsSync(publicHtml)) {
-    res.sendFile(publicHtml);
-  } else if (fs.existsSync(frontendHtml)) {
-    res.sendFile(frontendHtml);
-  } else {
-    res.sendFile(fallbackHtml);
+
+  const distHtml = path.join(frontendDist, "index.html");
+  if (fs.existsSync(distHtml)) {
+    return res.sendFile(distHtml);
   }
+  next();
 });
 
-// Redirect any legacy requests for dpa.html to root API status endpoint
-app.get("/dpa.html", (req, res) => {
-  res.redirect("/");
-});
 
 // 404 Handler for undefined routes
 app.use((req, res) => {

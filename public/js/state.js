@@ -11,6 +11,26 @@ let kpisCacheStore = {};
 let currentRecordsData = [];
 
 export const StateManager = {
+  getTheme() {
+    return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+  },
+
+  initTheme() {
+    const isDark = this.getTheme() === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    if (document.body) document.body.classList.toggle('dark', isDark);
+    return isDark ? 'dark' : 'light';
+  },
+
+  toggleTheme() {
+    const next = this.getTheme() === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
+    const isDark = next === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    if (document.body) document.body.classList.toggle('dark', isDark);
+    return next;
+  },
+
   getToken() {
     return localStorage.getItem('dpa_token') || localStorage.getItem('token');
   },

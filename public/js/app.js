@@ -3,6 +3,34 @@ import { StateManager } from './state.js';
 import { UI } from './ui.js';
 import { Events } from './events.js';
 
+let activeCategoryFilter = '';
+let lastSearch = '';
+let lastRegion = '';
+
+// Apply the persisted theme immediately, before the rest of the app initializes,
+// to avoid a light-mode flash when the user's saved preference is dark.
+StateManager.initTheme();
+
+function updateThemeToggleButton(theme) {
+  const icon = document.querySelector('#darkModeBtn span:first-child');
+  if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+export function isRecordCompleted(record) {
+  const itemStatus = record.item_status || record.ITEM_STATUS || record['ITEM STATUS'] || '';
+  return itemStatus.toString().toLowerCase() === 'audited'
+    || record.position_status === 'FILLED' || record['POSITION STATUS'] === 'FILLED'
+    || record.is_audited === true || record.is_completed === true;
+}
+
+export function getActiveRows(records = []) {
+  return records.filter(r => !isRecordCompleted(r));
+}
+
+export function getCompletedRows(records = []) {
+  return records.filter(isRecordCompleted);
+}
+
 export function switchView(viewId) {
   // Hide all view panels
   const viewPanels = document.querySelectorAll('.view-panel, .audit-panel, section[id$="-view"]');
@@ -76,6 +104,22 @@ export async function loadCollaborators() {
   }
 }
 
+function applyFilters() {
+  const activeRecords = getActiveRows(StateManager.getCurrentRecords());
+  const filtered = activeRecords.filter(r => {
+    const itemNum = (r.item_number || r['ITEM NUMBER'] || '').toString().toLowerCase();
+    const posTitle = (r.position_title || r['POSITION TITLE'] || '').toString().toLowerCase();
+    const rRegion = (r.region_id || r.region_name || '').toString().toLowerCase();
+    const rCategory = r.position_category || r['POSITION CATEGORY'] || '';
+
+    const matchesSearch = !lastSearch || itemNum.includes(lastSearch.toLowerCase()) || posTitle.includes(lastSearch.toLowerCase());
+    const matchesRegion = !lastRegion || rRegion.includes(lastRegion.toLowerCase());
+    const matchesCategory = !activeCategoryFilter || rCategory === activeCategoryFilter;
+    return matchesSearch && matchesRegion && matchesCategory;
+  });
+  UI.renderRows(filtered, StateManager.getStagedEdits());
+}
+
 export async function loadDashboard() {
   try {
     const [recordsRes, kpisRes, interventionsRes] = await Promise.all([
@@ -85,7 +129,7 @@ export async function loadDashboard() {
     ]);
 
     const records = Array.isArray(recordsRes) ? recordsRes : (recordsRes.data || recordsRes.records || []);
-    const kpis = kpisRes.data || kpisRes.kpis || kpisRes || {};
+    const kpis = kpisRes || {};
     const interventions = Array.isArray(interventionsRes) ? interventionsRes : (interventionsRes.data || []);
 
     StateManager.setCurrentRecords(records);
@@ -93,30 +137,14 @@ export async function loadDashboard() {
 
     const stagedEdits = StateManager.getStagedEdits();
 
-    UI.renderRows(records, stagedEdits);
+    UI.renderRows(getActiveRows(records), stagedEdits);
+    UI.renderCompletedTable(getCompletedRows(records));
     UI.renderCompletionStickers(kpis);
+    UI.renderCategoryKPIs(records, activeCategoryFilter);
+    UI.renderDashboardCharts(kpis.vacancyAgingDistribution || [], kpis.reasonsUnfilled || []);
     UI.renderInterventions(interventions);
     UI.updateSaveChangesUI();
 
-    Events.setupSaveButton(async () => {
-      await loadDashboard();
-    });
-
-    Events.setupFilterListeners(({ search, region }) => {
-      const allRecords = StateManager.getCurrentRecords();
-      const filtered = allRecords.filter(r => {
-        const itemNum = (r.item_number || r['ITEM NUMBER'] || '').toString().toLowerCase();
-        const posTitle = (r.position_title || r['POSITION TITLE'] || '').toString().toLowerCase();
-        const rRegion = (r.region_id || r.region_name || '').toString().toLowerCase();
-
-        const matchesSearch = !search || itemNum.includes(search.toLowerCase()) || posTitle.includes(search.toLowerCase());
-        const matchesRegion = !region || rRegion.includes(region.toLowerCase());
-        return matchesSearch && matchesRegion;
-      });
-      UI.renderRows(filtered, StateManager.getStagedEdits());
-    });
-
-    Events.setupCollaboratorsListeners();
     await loadCollaborators();
 
   } catch (err) {
@@ -128,11 +156,11 @@ export function showGatedAuth() {
   const gatedAuth = document.getElementById('gated-auth') || document.getElementById('login-view');
   const mainApp = document.getElementById('main-app') || document.getElementById('dashboard-view');
   if (gatedAuth) {
-    gatedAuth.style.display = '';
+    gatedAuth.style.removeProperty('display');
     gatedAuth.classList.remove('hidden');
   }
   if (mainApp) {
-    mainApp.style.display = 'none';
+    mainApp.style.setProperty('display', 'none', 'important');
     mainApp.classList.add('hidden');
   }
 }
@@ -141,11 +169,11 @@ export function showMainDashboard() {
   const gatedAuth = document.getElementById('gated-auth') || document.getElementById('login-view');
   const mainApp = document.getElementById('main-app') || document.getElementById('dashboard-view');
   if (gatedAuth) {
-    gatedAuth.style.display = 'none';
+    gatedAuth.style.setProperty('display', 'none', 'important');
     gatedAuth.classList.add('hidden');
   }
   if (mainApp) {
-    mainApp.style.display = 'block';
+    mainApp.style.setProperty('display', 'block', 'important');
     mainApp.classList.remove('hidden');
   }
 }
@@ -165,6 +193,7 @@ export function parseJwt(token) {
 
 export async function checkAuthAndHydrate() {
   const token = StateManager.getToken();
+  console.log('[Auth] checkAuthAndHydrate | token present:', !!token);
   if (!token) {
     showGatedAuth();
     return;
@@ -191,6 +220,7 @@ export async function checkAuthAndHydrate() {
     console.warn('Profile fetch warning (using cached user state):', err.message);
   }
 
+  console.log('[Auth] checkAuthAndHydrate — calling loadDashboard()');
   await loadDashboard();
 }
 
@@ -201,9 +231,50 @@ window.switchView = switchView;
 
 // Application Initialization
 document.addEventListener('DOMContentLoaded', async () => {
+  updateThemeToggleButton(StateManager.getTheme());
+
+  const darkModeBtn = document.getElementById('darkModeBtn');
+  if (darkModeBtn) {
+    darkModeBtn.addEventListener('click', () => {
+      const newTheme = StateManager.toggleTheme();
+      updateThemeToggleButton(newTheme);
+    });
+  }
+
   Events.setupAuthListeners(async () => {
     await checkAuthAndHydrate();
   });
+
+  Events.setupRemarksModalListeners();
+  Events.setupCategoryModalListeners();
+
+  // Bind all data-independent DOM listeners once, immediately, at page load —
+  // not inside loadDashboard(), which used to re-run these on every dashboard
+  // refresh (initial load, every save, every intervention add). That both
+  // stacked duplicate handlers (the interventions double-submit bug) and meant
+  // "+ Add Intervention" silently did nothing until the first loadDashboard()
+  // async chain (records + kpis + interventions + collaborators) finished.
+  Events.setupSaveButton(async () => {
+    await loadDashboard();
+  });
+
+  Events.setupInterventionsListeners(async () => {
+    await loadDashboard();
+  });
+
+  Events.setupFilterListeners(({ search, region }) => {
+    lastSearch = search;
+    lastRegion = region;
+    applyFilters();
+  });
+
+  Events.setupCategoryFilterListeners((category) => {
+    activeCategoryFilter = category;
+    UI.renderCategoryKPIs(StateManager.getCurrentRecords(), activeCategoryFilter);
+    applyFilters();
+  });
+
+  Events.setupCollaboratorsListeners();
 
   // Setup sidebar navigation clicks
   document.querySelectorAll('.nav button').forEach(btn => {

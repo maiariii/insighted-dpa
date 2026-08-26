@@ -4,7 +4,6 @@ import sys
 import time
 import tarfile
 import subprocess
-import shutil
 
 # Handle Windows console encoding for emojis/box-drawing chars from remote PM2 output
 if sys.platform == "win32":
@@ -54,6 +53,20 @@ def warn(msg): print(f"{YELLOW}[WARN] {msg}{NC}", flush=True)
 def error(msg): print(f"{RED}[ERROR] {msg}{NC}", flush=True)
 
 def run_command(cmd, capture=False, timeout=90, retries=1, delay=5, env=None, check=True):
+    """Runs cmd, which may be a plain string (simple local commands like
+    `npm -v` — needs shell=True so cmd.exe can resolve npm.cmd/node.exe via
+    PATH) or a list of args (REQUIRED for ssh/scp calls carrying embedded
+    quotes/newlines: shell=True routes through cmd.exe, which does not
+    understand POSIX single-quote grouping and treats embedded newlines as
+    separate LOCAL commands rather than one quoted remote argument. A list
+    bypasses cmd.exe entirely — CreateProcess talks to ssh.exe/scp.exe
+    directly — so multi-line remote scripts reach the target executable
+    intact instead of being re-split and partly executed locally, which was a
+    real, previously-shipped bug in this script.
+
+    Retries apply to any command tagged network-sensitive (ssh/scp) even if the
+    caller didn't ask for extra retries, since a dropped/timed-out connection
+    there is transient, not a real failure to abort on."""
     cmd_str = cmd if isinstance(cmd, str) else ' '.join(cmd)
     is_network = isinstance(cmd, list) and cmd and cmd[0] in ("ssh", "scp")
     max_attempts = max(retries, 5) if is_network else retries
@@ -87,7 +100,15 @@ def ssh_base():
     return ["ssh"] + SSH_OPTS + [f"{REMOTE_USER}@{REMOTE_HOST}"]
 
 def pre_flight_audit():
+    """Phase 1: local tool check + a real SSH connectivity probe (not just
+    hoping the later transfer works) — mirrors the "echo SSH_OK" pattern used
+    across this team's other deploy scripts. Read-only; changes nothing."""
     info("Phase 1: Pre-flight audit")
+    # String form (shell=True) — npm/node are .cmd wrapper scripts on Windows,
+    # which CreateProcess (used when shell=False) can't resolve without going
+    # through cmd.exe. List form is reserved for ssh/scp below, which need to
+    # bypass cmd.exe for the opposite reason. run_command() exits the process
+    # itself (check=True by default) if either of these isn't found/fails.
     run_command("npm -v")
     run_command("node -v")
 
@@ -98,7 +119,21 @@ def pre_flight_audit():
         sys.exit(1)
     success("SSH connectivity confirmed.")
 
+import shutil
+
 def build_local_assets():
+    """Phase 2: Local build, entirely on this machine — nothing here touches
+    Nginx, other pm2 processes, or any port other than what this app already
+    uses.
+
+    1. apps/frontend (React/Vite) -> apps/frontend/dist, built with
+       VITE_BASE_PATH injected into the subprocess environment (not hardcoded
+       into source) so the built index.html's asset URLs are correctly
+       prefixed for the /insighted-dpa/ subpath Nginx serves this under.
+    2. public/css/tailwind.css — the precompiled Tailwind bundle used by the
+       public/ (vanilla-JS) build of this app. Must be rebuilt any time
+       Tailwind classes change in public/**/*.html or public/js/**/*.js.
+    """
     info("Phase 2: Local build")
     run_command("npm install --no-audit --no-fund")
 
@@ -126,6 +161,8 @@ def build_local_assets():
     success("Local build verified: apps/frontend/dist/index.html and public/css/tailwind.css are present.")
 
 def exclude_filter(tarinfo):
+    """Filters out heavy/unnecessary local files to keep the archive small
+    enough for a reliable transfer."""
     name = tarinfo.name.lower()
     excludes = ['node_modules', '.git', '.turbo', '__pycache__', '.log', ARCHIVE_NAME.lower()]
     if any(ex in name for ex in excludes if ex != '.env'):
@@ -133,6 +170,8 @@ def exclude_filter(tarinfo):
     return tarinfo
 
 def package_archive():
+    """Phase 3: Bundle backend code, the freshly-built apps/frontend/dist,
+    public/, and config into one tarball."""
     info("Phase 3: Packaging archive")
     existing_includes = [item for item in INCLUDE if os.path.exists(item)]
     missing = [item for item in INCLUDE if item not in existing_includes]
@@ -148,6 +187,20 @@ def package_archive():
     success(f"Payload archive created ({size_mb:.1f} MB).")
 
 def deploy_remote():
+    """Phase 4: Transfer + atomic remote execution. Scoped entirely to
+    REMOTE_DIR and PM2_NAME. Never touches /etc/nginx or reloads/restarts the
+    Nginx service — strictly no-Nginx-touch.
+
+    The critical fix here vs. earlier attempts: Nginx's location block for
+    this app serves static files from a PERSISTENT REMOTE_DIR/dist/ directory
+    (alias /mnt/insighted-dpa/dist/). Earlier revisions either never populated
+    that directory, or (briefly) replaced it wholesale from the local machine —
+    both wrong. The safe pattern (matching this team's other working deploy
+    scripts) is: on the REMOTE side, after extraction, clear dist/'s CONTENTS
+    (not the directory itself — removing/recreating the folder while Nginx
+    holds an open handle to it can stall or crash requests) and copy the fresh
+    apps/frontend/dist build into it in place.
+    """
     info(f"Phase 4: Preparing {REMOTE_DIR} and transferring archive")
     prep_cmd = (
         f"sudo mkdir -p {REMOTE_DIR} /var/www/html/insighted-dpa && "
@@ -165,6 +218,8 @@ def deploy_remote():
         f"pm2 stop {PM2_NAME} 2>/dev/null || true && "
         f"tar -xzf {ARCHIVE_NAME} && "
         f"sudo chown -R {REMOTE_USER}:{REMOTE_USER} {REMOTE_DIR} && "
+        # Clear dist/'s contents in place, never the folder itself, then copy
+        # the fresh frontend build in. Safe to re-run every deploy.
         f"mkdir -p {REMOTE_DIR}/dist {REMOTE_DIR}/assets /var/www/html/insighted-dpa/assets && "
         f"find {REMOTE_DIR}/dist -mindepth 1 -delete && "
         f"rm -rf {REMOTE_DIR}/assets/* /var/www/html/insighted-dpa/assets/* 2>/dev/null || true; "
@@ -181,11 +236,23 @@ def deploy_remote():
         f"pm2 start {ecosystem_remote_path} --update-env && pm2 save && "
         f"rm -f {REMOTE_DIR}/{ARCHIVE_NAME}"
     )
+    # CRITICAL: remote_script is its own single list element, not interpolated
+    # into a shell string. subprocess.run() with a list on Windows calls
+    # CreateProcess directly (no cmd.exe), so this whole &&-joined string
+    # reaches the local ssh.exe as one intact argument; ssh then sends that as
+    # one command to the REMOTE shell — the only place these steps should be
+    # split apart. A previous version of this script built the command as an
+    # interpolated string, which cmd.exe silently mangled: it split on
+    # embedded characters and ran fragments as separate *local* Windows
+    # commands, so the real remote steps never executed at all.
     ssh_cmd = ["ssh"] + SSH_OPTS + [f"{REMOTE_USER}@{REMOTE_HOST}", remote_script]
     run_command(ssh_cmd, timeout=180)
     success("Remote setup complete.")
 
 def post_flight_verify():
+    """Phase 5: Health check + auto-revive if PM2 shows the process errored or
+    stopped. Reads/restarts this app's own PM2 process only; touches nothing
+    else on the VM."""
     info("Phase 5: Post-flight verification")
 
     info("Checking PM2 status...")

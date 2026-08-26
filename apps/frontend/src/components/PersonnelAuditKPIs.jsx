@@ -1,127 +1,77 @@
-import React, { useState, useEffect } from "react";
-import styles from "./PersonnelAuditKPIs.module.css";
+import React from "react";
+import { useApp } from "../context/AppContext";
 
-const kpiCacheStore = {};
-const CACHE_TTL = 30000;
+export function PersonnelAuditKPIs() {
+  const {
+    records,
+    searchQuery,
+    selectedRegionFilter,
+    selectedStatusFilter,
+    activeCategoryFilter,
+    setActiveCategoryFilter,
+    isRecordCompleted
+  } = useApp();
 
-export default function PersonnelAuditKPIs({
-  region = "NCR",
-  office = "Regional Office - Proper",
-  apiEndpoint = "/api/personnel-audit/kpis",
-  initialData = null
-}) {
-  const [kpiData, setKpiData] = useState(initialData);
-  const [loading, setLoading] = useState(!initialData);
-  const [error, setError] = useState(null);
+  // Dynamically filter records according to active region, status, and search filters
+  // so category KPI counts and accomplishment rates respond live to filters.
+  const filteredRecords = (records || []).filter(r => {
+    const itemNum = (r.item_number || r['ITEM NUMBER'] || '').toString().toLowerCase();
+    const posTitle = (r.position_title || r['POSITION TITLE'] || '').toString().toLowerCase();
+    const regionVal = (r.region_id || r.region_name || r.REGION || r['REGION'] || '').toString().toLowerCase();
+    const statusVal = (r.item_status || r.ITEM_STATUS || r.position_status || r['POSITION STATUS'] || '').toString();
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchKpis = async (forceRefetch = false) => {
-      const cacheKey = `${region}|${office}|${apiEndpoint}`;
-      const now = Date.now();
-      const cachedEntry = kpiCacheStore[cacheKey];
+    const matchesSearch = !searchQuery || itemNum.includes(searchQuery.toLowerCase()) || posTitle.includes(searchQuery.toLowerCase());
+    const matchesRegion = !selectedRegionFilter || regionVal.includes(selectedRegionFilter.toLowerCase());
+    const matchesStatus = !selectedStatusFilter || statusVal.toLowerCase() === selectedStatusFilter.toLowerCase();
 
-      if (!forceRefetch && cachedEntry && (now - cachedEntry.timestamp < CACHE_TTL)) {
-        setKpiData(cachedEntry.data);
-        setLoading(false);
-        return;
-      }
+    return matchesSearch && matchesRegion && matchesStatus;
+  });
 
-      setLoading(true);
-      setError(null);
-      try {
-        const query = new URLSearchParams({ region, office }).toString();
-        const response = await fetch(`${apiEndpoint}?${query}`);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const json = await response.json();
-        if (isMounted) {
-          const payload = json.data || json;
-          if (json.success !== false) {
-            setKpiData(payload);
-            kpiCacheStore[cacheKey] = {
-              data: payload,
-              timestamp: now
-            };
-          } else {
-            throw new Error(json.message || "Invalid API response structure");
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          console.error("Failed to fetch Personnel Audit KPIs:", err);
-          setError(err.message || "Data temporarily unavailable");
-          setKpiData({
-            totalUnfilled: 0,
-            auditedItems: 0,
-            remainingItems: 0,
-            completionPercentage: 0
-          });
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchKpis();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [region, office, apiEndpoint]);
-
-  if (loading && !kpiData) {
-    return (
-      <div className={styles.kpiGrid} data-testid="kpi-loading-skeleton">
-        {[1, 2, 3].map((idx) => (
-          <article key={idx} className={`${styles.card} ${styles.kpi}`}>
-            <div className={`${styles.skeletonBox} ${styles.skeletonLabel}`} />
-            <div className={`${styles.skeletonBox} ${styles.skeletonValue}`} />
-            <div className={`${styles.skeletonBox} ${styles.skeletonSubtext}`} />
-          </article>
-        ))}
-      </div>
-    );
-  }
-
-  const totalUnfilled = kpiData?.totalUnfilled ?? kpiData?.totalAudited ?? 0;
-  const auditedItems = kpiData?.auditedItems ?? kpiData?.completedAudited ?? 0;
-  const remainingItems = kpiData?.remainingItems ?? Math.max(0, totalUnfilled - auditedItems);
-
-  const completionPercentage = kpiData?.completionPercentage !== undefined
-    ? kpiData.completionPercentage
-    : (totalUnfilled > 0 ? parseFloat(((auditedItems / totalUnfilled) * 100).toFixed(1)) : 0);
+  const categories = [
+    { key: 'Teaching', label: 'Teaching Personnel' },
+    { key: 'Non-Teaching', label: 'Non-Teaching Personnel' },
+    { key: 'Teaching-Related', label: 'Teaching-Related Personnel' }
+  ];
 
   return (
-    <div className={styles.kpiGrid}>
-      {error && (
-        <div className={styles.errorBanner} role="alert">
-          <strong>Notice:</strong> Unable to load live metrics. Displaying default values.
-        </div>
-      )}
+    <div className="personnel-kpi-grid relative z-10">
+      {categories.map(({ key, label }) => {
+        const catRows = filteredRecords.filter(
+          r => (r.position_category || r['POSITION CATEGORY']) === key
+        );
+        const total = catRows.length;
+        const audited = catRows.filter(isRecordCompleted).length;
+        const pctRaw = total > 0 ? (audited / total) * 100 : 0;
+        const pct = parseFloat(pctRaw.toFixed(1));
+        const isActive = activeCategoryFilter === key;
 
-      <article className={`${styles.card} ${styles.kpi}`}>
-        <label>Total unfilled items</label>
-        <strong>{totalUnfilled}</strong>
-        <span>Live unfilled items monitored</span>
-      </article>
-
-      <article className={`${styles.card} ${styles.kpi}`}>
-        <label>Audited Items</label>
-        <strong>{auditedItems}</strong>
-        <span>{`${completionPercentage}% audit completion`}</span>
-      </article>
-
-      <article className={`${styles.card} ${styles.kpi}`}>
-        <label>Remaining Items to Audit</label>
-        <strong>{remainingItems}</strong>
-        <span>Requires priority review</span>
-      </article>
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`personnel-tab kpi card-glass ${isActive ? 'active' : ''}`}
+            onClick={() => setActiveCategoryFilter(isActive ? '' : key)}
+          >
+            <div className="specular-sheen"></div>
+            <label>{label}</label>
+            <strong>{total}</strong>
+            <div className="kpi-progress-wrap">
+              <div className="kpi-progress-track">
+                <div
+                  className="kpi-progress-fill"
+                  style={{ width: `${pct}%` }}
+                ></div>
+              </div>
+              <span className="completion-sticker">
+                {pct.toFixed(1)}% accomplishment rate
+              </span>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
+
+export default PersonnelAuditKPIs;

@@ -9,6 +9,8 @@
     "dev:frontend": "npm run dev -w apps/frontend",
     "dev:backend": "npm run dev -w apps/backend",
     "dev": "npm run dev --workspaces",
-    "test": "npm run test -w apps/backend"
+    "test": "npm run test -w apps/backend",
+    "build:css": "tailwindcss -i ./public/css/tailwind-source.css -o ./public/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./public/css/tailwind-source.css -o ./public/css/tailwind.css --watch"
   }
 }

@@ -9,8 +9,13 @@
   },
   "dependencies": {
     "@project/shared": "*",
+    "chart.js": "^4.5.1",
+    "flatpickr": "^4.6.13",
+    "lucide-react": "^1.34.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

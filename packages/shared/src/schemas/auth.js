@@ -39,5 +39,9 @@ export const RegisterSchema = z.object({
     .min(1, "Region is required"),
   division_id: z
     .string()
-    .min(1, "Division office is required")
+    .min(1, "Division office is required"),
+  passcode: z
+    .string()
+    .min(1, "Passcode is required")
+    .regex(/^\d{6}$/, "Passcode must be exactly 6 numeric digits")
 });
