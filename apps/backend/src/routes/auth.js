@@ -33,8 +33,14 @@ export function verifyToken(req, res, next) {
  */
 router.get(["/regions-divisions", "/auth/regions-divisions", "/api/auth/regions-divisions", "/insighted-dpa/api/auth/regions-divisions"], async (req, res) => {
   try {
-    const regionsResult = await db.query("SELECT id, name FROM regions ORDER BY name ASC;");
-    const divisionsResult = await db.query("SELECT id, region_id, office_name FROM division_offices ORDER BY office_name ASC;");
+    const regionsResult = await db.query(
+      "SELECT DISTINCT region_id AS id, region_id AS name FROM personnel_audits WHERE region_id IS NOT NULL AND region_id != '' ORDER BY name ASC;"
+    );
+
+    const divisionsResult = await db.query(
+      "SELECT DISTINCT division_id AS id, region_id, division_id AS office_name FROM personnel_audits WHERE division_id IS NOT NULL AND division_id != '' ORDER BY office_name ASC;"
+    );
+
     res.json({
       regions: regionsResult.rows,
       divisions: divisionsResult.rows

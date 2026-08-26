@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "insighted-dpa-backend",
-      script: "server/index.js",
+      script: "apps/backend/src/index.js",
       cwd: "/mnt/insighted-dpa",
       instances: 2,
       exec_mode: "cluster",

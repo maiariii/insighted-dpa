@@ -46,10 +46,15 @@ app.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
-  res.sendFile(path.join(__dirname, "..", "index.html"));
+  const publicHtml = path.join(__dirname, "../public/index.html");
+  if (require('fs').existsSync(publicHtml)) {
+    res.sendFile(publicHtml);
+  } else {
+    res.sendFile(path.join(__dirname, "..", "index.html"));
+  }
 });
 
-// Redirect any legacy requests for dpa.html to root API status endpoint
+// Redirect any legacy requests for dpa.html to root
 app.get("/dpa.html", (req, res) => {
   res.redirect("/");
 });

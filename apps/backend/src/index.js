@@ -60,9 +60,12 @@ app.get("/", (req, res) => {
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   
+  const publicHtml = path.join(rootDir, "public", "index.html");
   const frontendHtml = path.join(frontendDir, "index.html");
   const fallbackHtml = path.join(rootDir, "index.html");
-  if (fs.existsSync(frontendHtml)) {
+  if (fs.existsSync(publicHtml)) {
+    res.sendFile(publicHtml);
+  } else if (fs.existsSync(frontendHtml)) {
     res.sendFile(frontendHtml);
   } else {
     res.sendFile(fallbackHtml);
@@ -85,10 +88,16 @@ app.use((req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
+  if (err && (err.type === "entity.parse.failed" || err instanceof SyntaxError)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid request payload format."
+    });
+  }
   console.error("Unhandled Server Error:", err);
-  res.status(500).json({
+  res.status(err.status || err.statusCode || 500).json({
     success: false,
-    error: "Internal Server Error"
+    error: err.message || "Internal Server Error"
   });
 });
 
