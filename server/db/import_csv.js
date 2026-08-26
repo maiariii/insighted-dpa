@@ -3,17 +3,6 @@ const path = require("path");
 const crypto = require("crypto");
 const db = require("./index");
 
-// Region ID resolution helper
-function getRegionId(name) {
-  if (!name) return "UNKNOWN";
-  const match = name.match(/\(([^)]+)\)$/);
-  if (match) return match[1].trim();
-  if (name.includes(" - ")) {
-    return name.split(" - ")[0].replace(/\s+/g, "_").toUpperCase();
-  }
-  return name.substring(0, 10).toUpperCase();
-}
-
 function safeInt(val, fallback = 0) {
   if (val === null || val === undefined || val === "") return fallback;
   const num = parseInt(val, 10);
@@ -41,7 +30,7 @@ function parseCsvLine(line) {
 
 async function importCsvData() {
   console.log("=================================================");
-  console.log("🚀 IMPORTING PERSONNEL AUDITS CSV DATA");
+  console.log("🚀 IMPORTING PERSONNEL AUDITS CSV DATA (PLAIN TEXT REFACTOR)");
   console.log("=================================================\n");
 
   const csvPath = path.join(__dirname, "../../2personnel_audits_202608251903.csv");
@@ -80,7 +69,6 @@ async function importCsvData() {
   const dpaYear = 2026;
 
   // Build mapping from field name -> index in raw line
-  // If rawHeaders has duplicates like dpa_month, find unique position for region_id, etc.
   let regionIdx = rawHeaders.indexOf("region_id");
   let divisionIdx = rawHeaders.indexOf("division_id");
   let categoryIdx = rawHeaders.indexOf("position_category");
@@ -122,9 +110,6 @@ async function importCsvData() {
   if (tentativeIdx === -1) tentativeIdx = 18;
   if (isAuditedIdx === -1) isAuditedIdx = 19;
 
-  const uniqueRegions = new Map();
-  const uniqueDivisions = new Map();
-
   const processedRows = [];
   const cleanCsvLines = [];
   cleanCsvLines.push(canonicalHeaders.join(","));
@@ -140,14 +125,8 @@ async function importCsvData() {
       rowId = crypto.randomUUID();
     }
 
-    const regionName = row[regionIdx] || "";
-    const officeName = row[divisionIdx] || "";
-    const regionId = getRegionId(regionName);
-
-    if (regionName && officeName) {
-      uniqueRegions.set(regionName, regionId);
-      uniqueDivisions.set(`${regionId}|${officeName}`, officeName);
-    }
+    const regionStr = row[regionIdx] ? row[regionIdx].trim() : "";
+    const divisionStr = row[divisionIdx] ? row[divisionIdx].trim() : "";
 
     const category = row[categoryIdx] || "Non-Teaching";
     const itemStatus = row[itemStatusIdx] || "Regular";
@@ -169,7 +148,7 @@ async function importCsvData() {
 
     // Standardized row for clean CSV file
     const cleanRowParts = [
-      rowId, dpaMonth, dpaYear, regionName, officeName,
+      rowId, dpaMonth, dpaYear, regionStr, divisionStr,
       category, itemStatus, itemNum, posTitle,
       sgVal, yrCreatedVal, yrsUnfilledVal, agingVal || "",
       posStatusVal, incumbentVal || "", firstDayVal || "",
@@ -187,8 +166,8 @@ async function importCsvData() {
       id: rowId,
       dpa_month: dpaMonth,
       dpa_year: dpaYear,
-      region_id: regionId,
-      office_name: officeName,
+      region_id: regionStr,
+      division_id: divisionStr,
       position_category: category,
       item_status: itemStatus,
       item_number: itemNum,
@@ -214,33 +193,8 @@ async function importCsvData() {
   fs.writeFileSync(csvPath, cleanCsvLines.join("\n"), "utf8");
   console.log(`  ✅ CSV file successfully written (${cleanCsvLines.length - 1} rows).`);
 
-  // 5. Upsert Regions
-  console.log(`\n5. Upserting ${uniqueRegions.size} unique regions into database...`);
-  for (const [regionName, regionId] of uniqueRegions.entries()) {
-    await db.query(
-      `INSERT INTO regions (id, name) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
-      [regionId, regionName]
-    );
-  }
-
-  // 6. Upsert Division Offices & Build Lookup Map
-  console.log(`\n6. Upserting ${uniqueDivisions.size} unique division offices...`);
-  for (const [key, officeName] of uniqueDivisions.entries()) {
-    const [regionId] = key.split("|");
-    await db.query(
-      `INSERT INTO division_offices (region_id, office_name) VALUES ($1, $2) ON CONFLICT (region_id, office_name) DO UPDATE SET office_name = EXCLUDED.office_name`,
-      [regionId, officeName]
-    );
-  }
-
-  const divisionMap = new Map();
-  const divRes = await db.query(`SELECT id, region_id, office_name FROM division_offices`);
-  divRes.rows.forEach(r => {
-    divisionMap.set(`${r.region_id}|${r.office_name}`, r.id);
-  });
-
-  // 7. Batch Insert Personnel Audits into PostgreSQL
-  console.log(`\n7. Batch inserting ${processedRows.length} personnel audit records into PostgreSQL...`);
+  // 5. Direct Batch Insert Personnel Audits into PostgreSQL (Zero-Lookup)
+  console.log(`\n5. Batch inserting ${processedRows.length} personnel audit records into PostgreSQL (Zero-Lookup)...`);
   const batchSize = 1000;
   let insertedCount = 0;
 
@@ -252,9 +206,6 @@ async function importCsvData() {
     let paramIndex = 1;
 
     for (const r of batch) {
-      const divisionId = divisionMap.get(`${r.region_id}|${r.office_name}`);
-      if (!divisionId) continue;
-
       valueTuples.push(`(
         $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++},
         $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++},
@@ -268,7 +219,7 @@ async function importCsvData() {
         r.dpa_month,
         r.dpa_year,
         r.region_id,
-        divisionId,
+        r.division_id,
         r.position_category,
         r.item_status,
         r.item_number,
@@ -301,6 +252,8 @@ async function importCsvData() {
       ON CONFLICT (item_number) DO UPDATE SET
         dpa_month = EXCLUDED.dpa_month,
         dpa_year = EXCLUDED.dpa_year,
+        region_id = EXCLUDED.region_id,
+        division_id = EXCLUDED.division_id,
         position_title = EXCLUDED.position_title,
         sg = EXCLUDED.sg,
         year_created = EXCLUDED.year_created,

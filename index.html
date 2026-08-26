@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    };
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DepEd Personnel Audit</title>
@@ -97,13 +102,13 @@
       padding: 14px;
       position: sticky;
       top: 20px;
-      height: 74px;
+      height: calc(100vh - 40px);
       width: 74px;
       display: flex;
       flex-direction: column;
       gap: 16px;
       overflow: hidden;
-      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, background 0.3s ease;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, background 0.3s ease;
       z-index: 1000;
     }
 
@@ -113,7 +118,8 @@
     }
 
     .sidebar:hover,
-    .sidebar.pinned {
+    .sidebar.pinned,
+    .sidebar.expanded {
       width: 280px;
       height: calc(100vh - 40px);
       box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.22);
@@ -151,7 +157,8 @@
     }
 
     .sidebar:hover .collapsible-text,
-    .sidebar.pinned .collapsible-text {
+    .sidebar.pinned .collapsible-text,
+    .sidebar.expanded .collapsible-text {
       opacity: 1;
       visibility: visible;
       transform: translateX(0);
@@ -182,7 +189,9 @@
     .sidebar:hover .profile-card,
     .sidebar:hover .sidebar-footer,
     .sidebar.pinned .profile-card,
-    .sidebar.pinned .sidebar-footer {
+    .sidebar.pinned .sidebar-footer,
+    .sidebar.expanded .profile-card,
+    .sidebar.expanded .sidebar-footer {
       opacity: 1;
       visibility: visible;
       max-height: 300px;
@@ -193,7 +202,9 @@
     body.dark .sidebar:hover .profile-card,
     body.dark .sidebar:hover .sidebar-footer,
     body.dark .sidebar.pinned .profile-card,
-    body.dark .sidebar.pinned .sidebar-footer {
+    body.dark .sidebar.pinned .sidebar-footer,
+    body.dark .sidebar.expanded .profile-card,
+    body.dark .sidebar.expanded .sidebar-footer {
       background: rgba(15, 23, 42, 0.35);
       border-color: rgba(226, 232, 240, 0.18);
     }
@@ -212,7 +223,8 @@
     }
 
     .sidebar:hover .sidebar-divider,
-    .sidebar.pinned .sidebar-divider {
+    .sidebar.pinned .sidebar-divider,
+    .sidebar.expanded .sidebar-divider {
       opacity: 1;
     }
 
@@ -515,6 +527,31 @@ padding-top: 6px;
       flex-wrap: wrap;
       gap: 16px;
       margin-bottom: 16px;
+    }
+
+    .panel-header-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #0f172a !important;
+      letter-spacing: -0.025em;
+      line-height: 1.25;
+      margin-bottom: 0.25rem;
+    }
+
+    body.dark .panel-header-title {
+      color: #f8fafc !important;
+    }
+
+    .panel-header-subtitle {
+      font-size: 0.875rem;
+      font-weight: 400;
+      color: #475569 !important;
+      line-height: 1.6;
+      margin-top: 0.25rem;
+    }
+
+    body.dark .panel-header-subtitle {
+      color: rgba(248, 250, 252, 0.72) !important;
     }
 
     .audit-header-actions {
@@ -1200,8 +1237,13 @@ padding-top: 6px;
     <!-- Left Hero Panel -->
     <div class="hidden md:flex md:w-1/2 bg-slate-900 text-white p-12 lg:p-16 flex-col justify-between">
       <div>
-        <div class="tracking-wider text-xs font-semibold text-teal-400 uppercase">Department of Education</div>
-        <h1 class="text-4xl font-extrabold tracking-tight mt-2">DPA Portal</h1>
+        <div class="flex items-center space-x-3 mb-6">
+          <img src="/APP.png" alt="InsightED Logo" class="h-12 w-auto object-contain flex-shrink-0" />
+          <div>
+            <div class="tracking-wider text-xs font-semibold text-teal-400 uppercase">Department of Education</div>
+            <h1 class="text-3xl font-extrabold tracking-tight">DPA Portal</h1>
+          </div>
+        </div>
         <p class="text-slate-400 mt-2 text-sm max-w-sm">Division vacancy monitoring & personnel auditing platform.</p>
       </div>
       <div class="space-y-6">
@@ -1299,7 +1341,7 @@ padding-top: 6px;
   <div class="app-shell" id="appShell">
     <aside class="sidebar glass" id="sidebar">
       <div class="brand">
-        <div class="seal">DPA</div>
+        <img src="/APP.png" alt="InsightED Logo" class="h-10 w-auto object-contain flex-shrink-0 mr-3" style="height: 44px; width: auto; max-width: 46px; object-fit: contain;" />
         <div class="collapsible-text" style="word-break: break-word; min-width: 0; max-width: 100%;">
           <h1>DepEd Personnel Audit</h1>
           <p>Division vacancy monitoring</p>
@@ -1317,11 +1359,18 @@ padding-top: 6px;
       <nav class="nav" aria-label="Primary navigation">
         <button class="active" data-tab="home"><span class="icon">📊</span><span class="collapsible-text">Home</span></button>
         <button data-tab="audit"><span class="icon">🧾</span><span class="collapsible-text">Personnel Audit</span></button>
+        <button data-tab="interventions" id="nav-interventions"><span class="icon">💡</span><span class="collapsible-text">Interventions</span></button>
         <button data-tab="settings"><span class="icon">⚙️</span><span class="collapsible-text">Settings</span></button>
       </nav>
 
       <button class="btn secondary sidebar-dark-btn" id="darkModeBtn" style="min-height: 42px; margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800;">
         <span>🌙</span><span class="collapsible-text">Toggle Dark Mode</span>
+      </button>
+
+      <!-- Sign Out Button -->
+      <button id="btn-signout" class="btn secondary sidebar-signout-btn" style="min-height: 42px; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; color: #dc2626; border-color: rgba(220, 38, 38, 0.2); background: rgba(254, 226, 226, 0.4);">
+        <svg class="w-5 h-5" style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+        <span class="collapsible-text">Sign Out</span>
       </button>
 
       <div class="sidebar-footer collapsible-text">
@@ -1394,10 +1443,10 @@ padding-top: 6px;
 
       <section id="audit" class="audit-panel">
         <article class="card">
-          <div class="audit-header mb-6 pb-2">
+          <div class="audit-header mb-6 pb-4 border-b border-slate-200/60 dark:border-slate-800/60">
             <div>
-              <h3 class="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-1">Personnel Audit Main Panel</h3>
-              <p class="text-sm font-normal text-slate-500 dark:text-slate-400 leading-relaxed">Exact schema columns from the brief. Item Number and Position Title stay frozen during horizontal scroll.</p>
+              <h3 class="panel-header-title text-xl md:text-2xl font-extrabold tracking-tight mb-1 leading-tight">Personnel Audit Main Panel</h3>
+              <p class="panel-header-subtitle text-sm font-normal leading-relaxed mt-1">Exact schema columns from the brief. Item Number and Position Title stay frozen during horizontal scroll.</p>
             </div>
             <div class="audit-header-actions" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
               <input id="globalSearch" class="field search" placeholder="Search table..." style="max-width: 220px;" />
@@ -1475,10 +1524,10 @@ padding-top: 6px;
 
         <!-- Completed Audit Rows Table Card -->
         <article class="card" style="margin-top: 24px;">
-          <div class="audit-header mb-6 pb-2">
+          <div class="audit-header mb-6 pb-4 border-b border-slate-200/60 dark:border-slate-800/60">
             <div>
-              <h3 class="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-1">Completed Personnel Audit Records</h3>
-              <p class="text-sm font-normal text-slate-500 dark:text-slate-400 leading-relaxed">Dedicated table displaying all audit items with fully completed required input fields.</p>
+              <h3 class="panel-header-title text-xl md:text-2xl font-extrabold tracking-tight mb-1 leading-tight">Completed Personnel Audit Records</h3>
+              <p class="panel-header-subtitle text-sm font-normal leading-relaxed mt-1">Dedicated table displaying all audit items with fully completed required input fields.</p>
             </div>
             <span class="pill green" id="completedCountBadge">0 Completed Rows</span>
           </div>
@@ -1551,6 +1600,43 @@ padding-top: 6px;
               <span>Collaborators inherit scope: NCR • Regional Office - Proper</span>
             </div>
           </article>
+        </div>
+      </section>
+
+      <section id="interventions" class="audit-panel">
+        <div class="space-y-6">
+          <!-- Header Block -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5 dark:border-slate-700">
+            <div>
+              <div class="text-xs font-semibold text-teal-600 dark:text-teal-400 tracking-wider uppercase">Part II: Other Interventions to Address Vacancies</div>
+              <h2 class="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1">Interventions Workspace</h2>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Formulate and monitor strategic actions designed to accelerate vacancy processing and streamline recruitment.</p>
+            </div>
+            <div>
+              <button onclick="openInterventionModal()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold shadow-md shadow-teal-500/10 transition-all hover:-translate-y-0.5 cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Intervention
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Cards Grid Panel -->
+          <div id="interventions-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Cards rendered dynamically here -->
+          </div>
+
+          <!-- Empty State Template -->
+          <div id="interventions-empty-state" class="hidden flex-col items-center justify-center text-center py-16 bg-white dark:bg-slate-800 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl max-w-xl mx-auto p-8">
+            <div class="p-3.5 bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 rounded-full mb-4">
+              <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+            </div>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">No Interventions Recorded</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 max-w-sm mt-1">There are no documented actions for addresses or recruitment vacancies on record. Click 'Add Intervention' to register your first initiative.</p>
+          </div>
         </div>
       </section>
     </main>
@@ -1633,6 +1719,70 @@ padding-top: 6px;
         <button class="btn secondary" onclick="closeVacancyDetailsModal()">Close</button>
       </div>
     </div>
+  <!-- Add Intervention Form Modal -->
+  <div id="intervention-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[90vh]" id="modal-container">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Add Intervention Strategy</h3>
+        <button type="button" onclick="closeInterventionModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Scrollable Form Container -->
+      <form id="intervention-form" onsubmit="submitInterventionForm(event)" class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <!-- Area of Concern -->
+        <div>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Area of Concern</label>
+          <input type="text" id="int-concern" required placeholder="e.g. Backlog in Secondary Teacher vacancy processing" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm">
+        </div>
+
+        <!-- Intervention to be Undertaken -->
+        <div>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Intervention to be Undertaken</label>
+          <textarea id="int-action" required rows="3" placeholder="Specify targeted initiatives, hiring pipelines, or process improvements..." class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Responsible Office -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Responsible Office</label>
+            <input type="text" id="int-office" required placeholder="e.g. SDO HR Section" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm">
+          </div>
+          <!-- Target Date -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Target Completion Date</label>
+            <input type="date" id="int-date" required onkeydown="event.preventDefault()" onclick="if(typeof this.showPicker === 'function') { this.showPicker(); }" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm cursor-pointer">
+          </div>
+        </div>
+
+        <!-- Dynamic Expected Outcomes -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Expected Outcomes</label>
+            <button type="button" onclick="addOutcomeRow()" class="text-xs text-teal-600 dark:text-teal-400 hover:underline font-bold flex items-center gap-1 cursor-pointer">
+              <span>+ Add Outcome</span>
+            </button>
+          </div>
+          <div id="outcome-rows" class="space-y-2">
+            <!-- Outcome input row container -->
+          </div>
+        </div>
+
+        <!-- Remarks -->
+        <div>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Remarks / Progress Logs (Initial Entry)</label>
+          <textarea id="int-remarks" rows="2" placeholder="Provide any initial updates, contextual background, or approvals..." class="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-sm"></textarea>
+        </div>
+      </form>
+
+      <!-- Modal Footer actions -->
+      <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-end gap-3">
+        <button type="button" onclick="closeInterventionModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer">Cancel</button>
+        <button type="submit" form="intervention-form" class="px-4 py-2 text-sm font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-lg shadow transition-colors cursor-pointer">Submit Strategy</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1695,6 +1845,65 @@ padding-top: 6px;
     };
 
     let data = [];
+    let recordsCacheStore = {};
+    let kpisCacheStore = {};
+
+    function debounce(func, delay = 300) {
+      let timer;
+      return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('dpa_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user_profile');
+      recordsCacheStore = {};
+      kpisCacheStore = {};
+      showGatedAuth();
+    }
+
+    async function fetchAuditRecordsWithCache(regionId, divisionId, params = {}) {
+      const token = localStorage.getItem('dpa_token') || localStorage.getItem('token');
+      const searchStr = params.search || '';
+      const itemStatus = params.item_status || '';
+      const posCat = params.position_category || '';
+      const limit = params.limit || 50;
+      const offset = params.offset || 0;
+      const cacheKey = `${regionId || ''}_${divisionId || ''}_${searchStr}_${itemStatus}_${posCat}_${limit}_${offset}`;
+
+      if (recordsCacheStore[cacheKey]) {
+        return recordsCacheStore[cacheKey];
+      }
+
+      const queryParams = new URLSearchParams();
+      if (regionId) queryParams.set('region_id', regionId);
+      if (divisionId) queryParams.set('division_id', divisionId);
+      if (searchStr) queryParams.set('search', searchStr);
+      if (itemStatus) queryParams.set('item_status', itemStatus);
+      if (posCat) queryParams.set('position_category', posCat);
+      if (limit) queryParams.set('limit', limit);
+      if (offset) queryParams.set('offset', offset);
+
+      try {
+        const res = await fetch(`/api/personnel-audit/records?${queryParams.toString()}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (res.ok) {
+          const result = await res.json();
+          const records = result.records || result.data;
+          if (result.success && Array.isArray(records)) {
+            recordsCacheStore[cacheKey] = records;
+            return records;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch personnel audit records:', err);
+      }
+      return null;
+    }
 
     let sortKey = "";
     let sortDirection = 1;
@@ -1799,6 +2008,10 @@ padding-top: 6px;
       audit: {
         title: "DepEd Personnel Audit",
         subtitle: "Update exact schema columns, sort/filter each column, and open rows in a wide detail modal."
+      },
+      interventions: {
+        title: "Interventions Workspace",
+        subtitle: "Formulate and monitor strategic actions designed to accelerate vacancy processing and streamline recruitment."
       },
       settings: {
         title: "Settings",
@@ -2425,12 +2638,252 @@ padding-top: 6px;
         tabs.forEach((button) => button.classList.remove("active"));
         panels.forEach((panel) => panel.classList.remove("active"));
         tab.classList.add("active");
-        document.getElementById(target).classList.add("active");
-        title.textContent = copy[target].title;
-        subtitle.textContent = copy[target].subtitle;
+        const targetEl = document.getElementById(target);
+        if (targetEl) targetEl.classList.add("active");
+        if (copy[target]) {
+          title.textContent = copy[target].title;
+          subtitle.textContent = copy[target].subtitle;
+        }
         if (backToDashboardBtn) backToDashboardBtn.style.display = target === "audit" ? "none" : "inline-flex";
+
+        if (target === "interventions") {
+          loadInterventions();
+        }
       });
     });
+
+    /* ==========================================================================
+       Interventions Workspace Logic & Handlers
+       ========================================================================== */
+    function addOutcomeRow(initialValue = '') {
+      const container = document.getElementById('outcome-rows');
+      if (!container) return;
+      const rowId = 'outcome_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
+      const rowDiv = document.createElement('div');
+      rowDiv.id = rowId;
+      rowDiv.className = 'flex items-center gap-2';
+      rowDiv.innerHTML = `
+        <input type="text" name="outcome_item" required placeholder="e.g. Conduct interview for 15 vacancies" value="${initialValue}" class="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-transparent text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500/10 text-sm">
+        <button type="button" onclick="removeOutcomeRow('${rowId}')" class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-colors cursor-pointer" title="Remove outcome">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+        </button>
+      `;
+      container.appendChild(rowDiv);
+    }
+
+    function removeOutcomeRow(rowId) {
+      const row = document.getElementById(rowId);
+      if (row) row.remove();
+    }
+
+    function openInterventionModal() {
+      const modal = document.getElementById('intervention-modal');
+      const container = document.getElementById('modal-container');
+      const form = document.getElementById('intervention-form');
+      if (!modal || !container || !form) return;
+
+      form.reset();
+      const outcomeContainer = document.getElementById('outcome-rows');
+      if (outcomeContainer) outcomeContainer.innerHTML = '';
+
+      // Add one default outcome field
+      addOutcomeRow();
+
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        container.classList.remove('scale-95', 'opacity-0');
+        container.classList.add('scale-100', 'opacity-100');
+      }, 10);
+    }
+
+    function closeInterventionModal() {
+      const modal = document.getElementById('intervention-modal');
+      const container = document.getElementById('modal-container');
+      if (!modal || !container) return;
+
+      container.classList.remove('scale-100', 'opacity-100');
+      container.classList.add('scale-95', 'opacity-0');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300);
+    }
+
+    async function loadInterventions() {
+      const container = document.getElementById('interventions-container');
+      const emptyState = document.getElementById('interventions-empty-state');
+      if (!container || !emptyState) return;
+
+      container.innerHTML = '<div class="col-span-full text-center py-10 text-slate-500 dark:text-slate-400 font-semibold animate-pulse">Loading interventions...</div>';
+      emptyState.classList.add('hidden');
+      emptyState.classList.remove('flex');
+
+      const token = localStorage.getItem('dpa_token') || localStorage.getItem('token');
+      try {
+        const res = await fetch('/api/personnel-audit/interventions', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (!res.ok) throw new Error('Authorization or database retrieval error');
+        const data = await res.json();
+
+        renderInterventions(data);
+      } catch (err) {
+        console.error('Error loading interventions:', err);
+        container.innerHTML = `<div class="col-span-full text-center py-10 text-rose-500 font-bold">Failed to load interventions from server. Please verify connection and authenticate.</div>`;
+      }
+    }
+
+    function renderInterventions(records) {
+      const container = document.getElementById('interventions-container');
+      const emptyState = document.getElementById('interventions-empty-state');
+      if (!container || !emptyState) return;
+      container.innerHTML = '';
+
+      if (!Array.isArray(records) || records.length === 0) {
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      emptyState.classList.remove('flex');
+
+      records.forEach(item => {
+        const formattedDate = new Date(item.target_date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+
+        const outcomes = Array.isArray(item.expected_outcomes) ? item.expected_outcomes : (typeof item.expected_outcomes === 'string' ? JSON.parse(item.expected_outcomes || '[]') : []);
+        const remarksList = Array.isArray(item.remarks) ? item.remarks : (typeof item.remarks === 'string' ? JSON.parse(item.remarks || '[]') : []);
+
+        const outcomesListHTML = outcomes.map(out => `
+          <li class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <svg class="w-3.5 h-3.5 text-teal-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <span class="break-words">${out}</span>
+          </li>
+        `).join('');
+
+        const remarksListHTML = remarksList.map(rem => `
+          <div class="bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+              <span>${rem.by || 'Auditor'}</span>
+              <span>${rem.at ? new Date(rem.at).toLocaleDateString() : ''}</span>
+            </div>
+            <p class="italic break-words text-slate-700 dark:text-slate-200">"${rem.text}"</p>
+          </div>
+        `).join('');
+
+        const card = document.createElement('div');
+        card.className = "bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow flex flex-col justify-between space-y-4";
+        card.innerHTML = `
+          <div class="space-y-3 flex-1">
+            <!-- Card Header / Concern -->
+            <div class="space-y-1.5">
+              <div class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wider bg-teal-50 text-teal-800 border border-teal-200 dark:bg-teal-950/20 dark:text-teal-300 dark:border-teal-800 uppercase">Area of Concern</div>
+              <h4 class="text-sm font-extrabold text-slate-900 dark:text-white leading-snug break-words">${item.area_of_concern}</h4>
+            </div>
+
+            <!-- Intervention to undertake -->
+            <div class="space-y-1">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Intervention Undertaken</span>
+              <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap break-words">${item.intervention_to_undertake}</p>
+            </div>
+
+            <!-- Expected Outcomes -->
+            ${outcomes.length > 0 ? `
+              <div class="space-y-1.5 pt-1">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Expected Outcomes</span>
+                <ul class="space-y-1.5">
+                  ${outcomesListHTML}
+                </ul>
+              </div>
+            ` : ''}
+
+            <!-- Remarks / Progress Log history -->
+            ${remarksList.length > 0 ? `
+              <div class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Remarks / History Log</span>
+                <div class="space-y-2 max-h-32 overflow-y-auto">
+                  ${remarksListHTML}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Card Metadata Footer -->
+          <div class="pt-4 border-t border-slate-100 dark:border-slate-700 grid grid-cols-2 gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+            <div class="space-y-0.5">
+              <span class="block font-bold text-slate-400 uppercase text-[9px] tracking-wider">Responsible</span>
+              <span class="font-semibold text-slate-800 dark:text-slate-200 break-words leading-tight">${item.responsible_office}</span>
+            </div>
+            <div class="space-y-0.5">
+              <span class="block font-bold text-slate-400 uppercase text-[9px] tracking-wider">Target Date</span>
+              <span class="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 text-teal-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                ${formattedDate}
+              </span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function submitInterventionForm(event) {
+      event.preventDefault();
+
+      const area_of_concern = document.getElementById('int-concern').value;
+      const intervention_to_undertake = document.getElementById('int-action').value;
+      const responsible_office = document.getElementById('int-office').value;
+      const target_date = document.getElementById('int-date').value;
+      const remarks = document.getElementById('int-remarks').value;
+
+      const outcomeInputs = document.getElementsByName('outcome_item');
+      const expected_outcomes = [];
+      for (let input of outcomeInputs) {
+        if (input.value && input.value.trim() !== '') {
+          expected_outcomes.push(input.value.trim());
+        }
+      }
+
+      const payload = {
+        area_of_concern,
+        intervention_to_undertake,
+        responsible_office,
+        target_date,
+        expected_outcomes,
+        remarks
+      };
+
+      const token = localStorage.getItem('dpa_token') || localStorage.getItem('token');
+      try {
+        const res = await fetch('/api/personnel-audit/interventions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Server error saving intervention');
+        }
+
+        closeInterventionModal();
+        alert('Intervention Strategy added successfully!');
+        loadInterventions();
+      } catch (err) {
+        console.error('Error submitting intervention strategy:', err);
+        alert('Error: ' + err.message);
+      }
+    }
 
     personnelTabs.forEach((button) => {
       button.addEventListener("click", () => setPersonnelCategory(button.dataset.category));
@@ -2451,6 +2904,7 @@ padding-top: 6px;
 
     document.getElementById("darkModeBtn").addEventListener("click", () => {
       document.body.classList.toggle("dark");
+      document.documentElement.classList.toggle("dark");
     });
 
     let searchDebounceTimer = null;
@@ -2999,16 +3453,11 @@ padding-top: 6px;
             hydrateProfile(user);
             showMainDashboard();
 
-            // Fetch personnel_audit table data filtered for registered user's region and division
+            // Fetch personnel_audit table data filtered for registered user's region and division using cached fetcher
             try {
-              const auditRes = await fetch(`/api/personnel-audit/records?region_id=${encodeURIComponent(user.region_id)}&division_id=${encodeURIComponent(user.division_id)}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              if (auditRes.ok) {
-                const auditResult = await auditRes.json();
-                if (auditResult.success && Array.isArray(auditResult.data) && auditResult.data.length > 0) {
-                  data = auditResult.data;
-                }
+              const auditResultData = await fetchAuditRecordsWithCache(user.region_id, user.division_id);
+              if (auditResultData && Array.isArray(auditResultData) && auditResultData.length > 0) {
+                data = auditResultData;
               }
             } catch (auditErr) {
               console.error('Failed to fetch user-filtered personnel audit records:', auditErr);
@@ -3142,12 +3591,14 @@ padding-top: 6px;
       });
     }
 
+    const btnSignout = document.getElementById('btn-signout');
+    if (btnSignout) {
+      btnSignout.addEventListener('click', handleLogout);
+    }
+
     const signOutBtn = document.getElementById('signOutBtn');
     if (signOutBtn) {
-      signOutBtn.addEventListener('click', () => {
-        localStorage.removeItem('dpa_token');
-        showGatedAuth();
-      });
+      signOutBtn.addEventListener('click', handleLogout);
     }
 
     checkAuthAndHydrate();

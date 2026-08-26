@@ -12,15 +12,11 @@ const GET_KPI_METRICS_SQL = `
     COALESCE(SUM(CASE WHEN item_status = 'Audited' OR position_status = 'FILLED' OR is_audited = true THEN 1 ELSE 0 END), 0)::int AS audited_items,
     COALESCE(SUM(CASE WHEN (item_status != 'Audited' AND (position_status IS NULL OR position_status != 'FILLED') AND (is_audited IS NULL OR is_audited = false)) OR item_status IS NULL THEN 1 ELSE 0 END), 0)::int AS remaining_items
   FROM personnel_audits pa
-  LEFT JOIN regions r ON pa.region_id::text = r.id::text
-  LEFT JOIN division_offices d ON pa.division_id::text = d.id::text
-  WHERE ($1::text IS NULL OR r.name = $1 OR pa.region_id::text = $1 OR r.id::text = $1 OR r.name ILIKE '%' || $1 || '%')
-    AND ($2::text IS NULL 
-         OR d.office_name = $2 
-         OR pa.division_id::text = $2 
-         OR d.id::text = $2
-         OR d.office_name ILIKE '%' || $2 || '%'
-         OR $2 ILIKE '%' || REPLACE(d.office_name, 'Division of ', '') || '%');
+  WHERE ($1::varchar IS NULL OR pa.region_id = $1 OR pa.region_id ILIKE '%' || $1 || '%')
+    AND ($2::varchar IS NULL 
+         OR pa.division_id = $2 
+         OR pa.division_id ILIKE '%' || $2 || '%'
+         OR $2 ILIKE '%' || REPLACE(pa.division_id, 'Division of ', '') || '%');
 `;
 
 /**
@@ -32,10 +28,8 @@ const GET_KPI_METRICS_SQLITE = `
     COALESCE(SUM(CASE WHEN item_status = 'Audited' OR position_status = 'FILLED' OR is_audited = 1 THEN 1 ELSE 0 END), 0) AS audited_items,
     COALESCE(SUM(CASE WHEN (item_status != 'Audited' AND (position_status IS NULL OR position_status != 'FILLED') AND (is_audited IS NULL OR is_audited = 0)) OR item_status IS NULL THEN 1 ELSE 0 END), 0) AS remaining_items
   FROM personnel_audits pa
-  LEFT JOIN regions r ON pa.region_id = r.id
-  LEFT JOIN division_offices d ON pa.division_id = d.id
-  WHERE (? IS NULL OR r.name = ? OR pa.region_id = ?)
-    AND (? IS NULL OR d.office_name = ? OR pa.division_id = ?);
+  WHERE (? IS NULL OR pa.region_id = ?)
+    AND (? IS NULL OR pa.division_id = ?);
 `;
 
 /**
@@ -53,24 +47,47 @@ const MOCK_DB_STORE = {
  */
 router.get("/records", verifyToken, async (req, res) => {
   try {
-    const { region_id, division_id, page = 1, limit = 5000 } = req.query;
+    const { region_id, division_id, page, limit, offset: queryOffset, item_status, position_category, search } = req.query;
     const targetRegion = region_id || req.user.region_id;
     const targetDivision = division_id || req.user.division_id;
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, Math.min(10000, parseInt(limit, 10) || 5000));
-    const offset = (pageNum - 1) * limitNum;
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 50));
+    const offsetNum = queryOffset !== undefined ? Math.max(0, parseInt(queryOffset, 10) || 0) : (pageNum - 1) * limitNum;
 
     const db = req.app.get("dbClient");
 
     if (db && typeof db.query === "function") {
+      let whereConditions = [
+        `($1::varchar IS NULL OR pa.region_id = $1 OR pa.region_id ILIKE '%' || $1 || '%')`,
+        `($2::varchar IS NULL OR pa.division_id = $2 OR pa.division_id ILIKE '%' || $2 || '%' OR $2 ILIKE '%' || REPLACE(pa.division_id, 'Division of ', '') || '%')`
+      ];
+      let sqlParams = [targetRegion, targetDivision];
+
+      if (item_status) {
+        sqlParams.push(item_status);
+        whereConditions.push(`pa.item_status = $${sqlParams.length}`);
+      }
+      if (position_category) {
+        sqlParams.push(position_category);
+        whereConditions.push(`pa.position_category = $${sqlParams.length}`);
+      }
+      if (search) {
+        sqlParams.push(`%${search}%`);
+        whereConditions.push(`(pa.item_number ILIKE $${sqlParams.length} OR pa.position_title ILIKE $${sqlParams.length})`);
+      }
+
+      sqlParams.push(limitNum, offsetNum);
+      const limitParamIdx = sqlParams.length - 1;
+      const offsetParamIdx = sqlParams.length;
+
       const sql = `
         SELECT 
           pa.id,
           pa.dpa_month,
           pa.dpa_year,
-          r.name AS "REGION",
-          d.office_name AS "DIVISION",
+          pa.region_id AS "REGION",
+          pa.division_id AS "DIVISION",
           pa.position_category AS "POSITION CATEGORY",
           pa.item_status AS "ITEM_STATUS",
           pa.item_number AS "ITEM NUMBER",
@@ -88,27 +105,30 @@ router.get("/records", verifyToken, async (req, res) => {
           TO_CHAR(pa.tentative_date_to_fill_up, 'YYYY-MM-DD') AS "TENTATIVE DATE TO FILL-UP",
           pa.is_audited
         FROM personnel_audits pa
-        LEFT JOIN regions r ON pa.region_id::text = r.id::text
-        LEFT JOIN division_offices d ON pa.division_id::text = d.id::text
-        WHERE (pa.region_id::text = $1 OR r.name = $1 OR r.id::text = $1 OR r.name ILIKE '%' || $1 || '%')
-          AND (pa.division_id::text = $2 OR d.office_name = $2 OR d.id::text = $2 OR d.office_name ILIKE '%' || $2 || '%' OR $2 ILIKE '%' || REPLACE(d.office_name, 'Division of ', '') || '%')
+        WHERE ${whereConditions.join(" AND ")}
         ORDER BY pa.item_number ASC
-        LIMIT $3 OFFSET $4;
+        LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx};
       `;
-      const result = await db.query(sql, [targetRegion, targetDivision, limitNum, offset]);
+      const result = await db.query(sql, sqlParams);
       return res.status(200).json({
         success: true,
+        count: result.rows.length,
         page: pageNum,
         limit: limitNum,
-        data: result.rows
+        offset: offsetNum,
+        data: result.rows,
+        records: result.rows
       });
     } else {
       // Fallback mock response for dev environment without active DB connection pool
       return res.status(200).json({
         success: true,
+        count: 0,
         page: pageNum,
         limit: limitNum,
-        data: null
+        offset: offsetNum,
+        data: null,
+        records: []
       });
     }
   } catch (error) {
@@ -216,6 +236,8 @@ router.put("/:id", verifyToken, async (req, res) => {
 
     if (db && typeof db.query === "function") {
       const allowedFields = [
+        "region_id",
+        "division_id",
         "position_status",
         "name_of_incumbent",
         "first_day_of_service",
@@ -301,7 +323,81 @@ router.put("/:id", verifyToken, async (req, res) => {
   }
 });
 
+const { query } = require("../db");
+
+/**
+ * GET /api/personnel-audit/interventions
+ * Fetches interventions recorded by the currently logged-in user
+ */
+router.get("/interventions", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const db = req.app.get("dbClient");
+    const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
+
+    const result = await queryFn(
+      "SELECT id, user_id, area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks, created_at FROM other_interventions WHERE user_id = $1 ORDER BY created_at DESC;",
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching interventions:", err);
+    res.status(500).json({ error: "Failed to retrieve intervention records" });
+  }
+});
+
+/**
+ * POST /api/personnel-audit/interventions
+ * Creates a new intervention entry for the logged-in user
+ */
+router.post("/interventions", verifyToken, async (req, res) => {
+  const { area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks } = req.body || {};
+
+  if (!area_of_concern || !intervention_to_undertake || !responsible_office || !target_date) {
+    return res.status(400).json({ error: "Area of Concern, Intervention, Responsible Office, and Target Date are required." });
+  }
+
+  try {
+    const userId = req.user.id;
+    const userName = `${req.user.first_name || ''} ${req.user.last_name || 'HRMO'}`.trim() || "Personnel Auditor";
+
+    const outcomesArray = Array.isArray(expected_outcomes)
+      ? expected_outcomes.filter(o => o && String(o).trim() !== "")
+      : [];
+
+    const initialRemarksLog = remarks && String(remarks).trim() !== ""
+      ? [{ text: String(remarks).trim(), by: userName, at: new Date().toISOString() }]
+      : [];
+
+    const db = req.app.get("dbClient");
+    const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
+
+    const insertQuery = `
+      INSERT INTO other_interventions
+        (user_id, area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *;
+    `;
+
+    const result = await queryFn(insertQuery, [
+      userId,
+      String(area_of_concern).trim(),
+      String(intervention_to_undertake).trim(),
+      String(responsible_office).trim(),
+      target_date,
+      JSON.stringify(outcomesArray),
+      JSON.stringify(initialRemarksLog)
+    ]);
+
+    res.status(201).json({ success: true, intervention: result.rows[0] });
+  } catch (err) {
+    console.error("Error saving intervention:", err);
+    res.status(500).json({ error: "Internal database error saving intervention" });
+  }
+});
+
 module.exports = router;
 module.exports.GET_KPI_METRICS_SQL = GET_KPI_METRICS_SQL;
 module.exports.GET_KPI_METRICS_SQLITE = GET_KPI_METRICS_SQLITE;
+
 

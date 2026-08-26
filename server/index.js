@@ -19,7 +19,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static assets from project root
+// Serve static assets from public directory and project root
+app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.static(path.join(__dirname, "..")));
 
 // Mount Auth & DPA API routes

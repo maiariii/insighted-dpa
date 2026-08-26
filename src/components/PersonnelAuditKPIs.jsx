@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import styles from "./PersonnelAuditKPIs.module.css";
 
-// In-memory request memoization & TTL cache
-const kpiCache = { data: null, timestamp: 0, key: "" };
+// In-memory request memoization & TTL cache store keyed by composite filter criteria
+const kpiCacheStore = {};
 const CACHE_TTL = 30000; // 30 seconds
 
 /**
@@ -31,9 +31,10 @@ export default function PersonnelAuditKPIs({
     const fetchKpis = async (forceRefetch = false) => {
       const cacheKey = `${region}|${office}|${apiEndpoint}`;
       const now = Date.now();
+      const cachedEntry = kpiCacheStore[cacheKey];
 
-      if (!forceRefetch && kpiCache.data && kpiCache.key === cacheKey && (now - kpiCache.timestamp < CACHE_TTL)) {
-        setKpiData(kpiCache.data);
+      if (!forceRefetch && cachedEntry && (now - cachedEntry.timestamp < CACHE_TTL)) {
+        setKpiData(cachedEntry.data);
         setLoading(false);
         return;
       }
@@ -53,9 +54,10 @@ export default function PersonnelAuditKPIs({
           const payload = json.data || json;
           if (json.success !== false) {
             setKpiData(payload);
-            kpiCache.data = payload;
-            kpiCache.timestamp = now;
-            kpiCache.key = cacheKey;
+            kpiCacheStore[cacheKey] = {
+              data: payload,
+              timestamp: now
+            };
           } else {
             throw new Error(json.message || "Invalid API response structure");
           }
