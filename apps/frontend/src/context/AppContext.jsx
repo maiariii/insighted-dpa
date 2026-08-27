@@ -50,6 +50,13 @@ export const AppProvider = ({ children }) => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   }, []);
 
+  const resetThemeToLight = useCallback(() => {
+    setTheme('light');
+    localStorage.setItem('theme', 'light');
+    document.documentElement.classList.remove('dark');
+    if (document.body) document.body.classList.remove('dark');
+  }, []);
+
   // Fetch static regions & divisions lookup once
   useEffect(() => {
     let isMounted = true;
@@ -110,27 +117,48 @@ export const AppProvider = ({ children }) => {
     });
   }, []);
 
-  const clearStagedEdits = useCallback(() => {
-    setStagedEdits({});
-    localStorage.removeItem('stagedEdits');
+  const clearStagedEdits = useCallback((recordIdsToClear = null) => {
+    setStagedEdits(prev => {
+      let updated = { ...prev };
+      if (Array.isArray(recordIdsToClear) && recordIdsToClear.length > 0) {
+        recordIdsToClear.forEach(id => {
+          delete updated[id];
+        });
+      } else {
+        updated = {};
+      }
+      if (Object.keys(updated).length === 0) {
+        localStorage.removeItem('stagedEdits');
+      } else {
+        localStorage.setItem('stagedEdits', JSON.stringify(updated));
+      }
+      return updated;
+    });
   }, []);
 
-  const saveChanges = useCallback(async () => {
-    const editEntries = Object.entries(stagedEdits);
+  const saveChanges = useCallback(async (targetRecordIds = null) => {
+    let editEntries = Object.entries(stagedEdits);
+    if (Array.isArray(targetRecordIds) && targetRecordIds.length > 0) {
+      editEntries = editEntries.filter(([id]) => targetRecordIds.includes(id));
+    }
+
     if (editEntries.length === 0) return;
 
+    const savedIds = editEntries.map(([id]) => id);
     const promises = editEntries.map(([id, fields]) => API.dpa.updateRecord(id, fields));
     await Promise.all(promises);
-    clearStagedEdits();
+    clearStagedEdits(savedIds);
     await refreshDashboard();
   }, [stagedEdits, clearStagedEdits, refreshDashboard]);
 
   // Helper check for record completion
   const isRecordCompleted = useCallback((record) => {
     const itemStatus = record.item_status || record.ITEM_STATUS || record['ITEM STATUS'] || '';
+    const posStatus = record.position_status || record['POSITION STATUS'] || '';
     return itemStatus.toString().toLowerCase() === 'audited'
-      || record.position_status === 'FILLED' || record['POSITION STATUS'] === 'FILLED'
-      || record.is_audited === true || record.is_completed === true;
+      || posStatus.toString().toUpperCase() === 'FILLED'
+      || record.is_audited === true
+      || record.is_completed === true;
   }, []);
 
   return (
@@ -138,6 +166,7 @@ export const AppProvider = ({ children }) => {
       value={{
         theme,
         toggleTheme,
+        resetThemeToLight,
         regions,
         divisions,
         records,

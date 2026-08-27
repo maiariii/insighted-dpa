@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useApp } from '../context/AppContext';
 import { API } from '../services/api';
 import { LoginSchema, RegisterSchema } from '@project/shared';
-import { Shield, BarChart3, Lock, CheckCircle2 } from 'lucide-react';
+import { Shield, BarChart3, Lock, CheckCircle2, Key, Mail } from 'lucide-react';
+
+// Shared style for Create Account text/email/password inputs — keeps them
+// on a light background with dark text (matching the Region/Division selects)
+// instead of inheriting the app's dark color-scheme UA styling.
+const SIGNUP_INPUT_CLASS = 'w-full p-2 border border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-500 rounded text-sm focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 [color-scheme:light]';
 
 export const Login = () => {
+  const navigate = useNavigate();
   const { login, register } = useAuth();
+  const { resetThemeToLight } = useApp();
   const [isRegistering, setIsRegistering] = useState(false);
 
   // Form states
+  const [isPasscodeMode, setIsPasscodeMode] = useState(false);
   const [signinEmail, setSigninEmail] = useState('');
   const [signinPassword, setSigninPassword] = useState('');
   const [signinError, setSigninError] = useState('');
@@ -68,17 +78,31 @@ export const Login = () => {
     e.preventDefault();
     setSigninError('');
 
-    const payload = { deped_email: signinEmail.trim(), password: signinPassword };
-    const validation = LoginSchema.safeParse(payload);
-    if (!validation.success) {
-      const issue = validation.error.issues[0];
-      setSigninError(issue ? issue.message : 'Please enter valid email and password.');
+    if (!signinEmail || !signinEmail.trim()) {
+      setSigninError('Please enter your DepEd email address.');
       return;
+    }
+
+    if (isPasscodeMode) {
+      if (!/^\d{6}$/.test(signinPassword.trim())) {
+        setSigninError('Passcode must be exactly 6 numeric digits.');
+        return;
+      }
+    } else {
+      const payload = { deped_email: signinEmail.trim(), password: signinPassword };
+      const validation = LoginSchema.safeParse(payload);
+      if (!validation.success) {
+        const issue = validation.error.issues[0];
+        setSigninError(issue ? issue.message : 'Please enter valid email and password.');
+        return;
+      }
     }
 
     setSigninLoading(true);
     try {
-      await login(payload.deped_email, payload.password);
+      await login(signinEmail.trim(), signinPassword);
+      if (typeof resetThemeToLight === 'function') resetThemeToLight();
+      navigate('/', { replace: true });
     } catch (err) {
       setSigninError(err.message || 'Authentication failed. Please check credentials.');
     } finally {
@@ -121,6 +145,8 @@ export const Login = () => {
     setSignupLoading(true);
     try {
       await register(payload);
+      if (typeof resetThemeToLight === 'function') resetThemeToLight();
+      navigate('/', { replace: true });
     } catch (err) {
       setSignupError(err.message || 'Registration failed.');
     } finally {
@@ -210,14 +236,15 @@ export const Login = () => {
           <div className="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-xl p-8 lg:p-10 rounded-3xl border border-slate-200/80 shadow-2xl space-y-6">
             <div>
               <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">Welcome Back</h2>
-              <p className="text-xs text-slate-500 font-medium mt-1">Sign in with your registered DepEd account credentials.</p>
+              <p className="text-xs text-slate-500 font-medium mt-1">Sign in with your registered DepEd account credentials or emergency passcode.</p>
             </div>
+
             {signinError && (
               <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200 font-medium">
                 {signinError}
               </div>
             )}
-            <form onSubmit={handleSignin} className="space-y-4" novalidate>
+            <form onSubmit={handleSignin} className="space-y-4" noValidate>
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">DepEd Email</label>
                 <input
@@ -231,16 +258,51 @@ export const Login = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Password</label>
-                <input
-                  type="password"
-                  value={signinPassword}
-                  onChange={(e) => setSigninPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:bg-white transition-all font-medium"
-                  placeholder="••••••••"
-                />
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    {isPasscodeMode ? '6-Digit Passcode' : 'Password'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPasscodeMode(!isPasscodeMode);
+                      setSigninError('');
+                      setSigninPassword('');
+                    }}
+                    className="text-xs text-teal-600 hover:text-teal-700 hover:underline font-semibold cursor-pointer"
+                  >
+                    {isPasscodeMode ? 'Use password instead' : 'Use passcode instead'}
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={signinPassword}
+                    onChange={(e) => {
+                      const val = isPasscodeMode ? e.target.value.replace(/\D/g, '').slice(0, 6) : e.target.value;
+                      setSigninPassword(val);
+                    }}
+                    inputMode={isPasscodeMode ? 'numeric' : 'text'}
+                    pattern={isPasscodeMode ? '[0-9]*' : undefined}
+                    maxLength={isPasscodeMode ? 6 : undefined}
+                    autoComplete={isPasscodeMode ? 'off' : 'current-password'}
+                    required
+                    className={`w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-900 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:bg-white transition-all font-medium ${
+                      isPasscodeMode ? 'font-mono tracking-widest' : ''
+                    }`}
+                    placeholder={isPasscodeMode ? '••••••' : '••••••••'}
+                  />
+                  {isPasscodeMode && /^\d{6}$/.test(signinPassword) && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 flex items-center justify-center pointer-events-none">
+                      <CheckCircle2 size={18} className="stroke-[2.5]" />
+                    </span>
+                  )}
+                </div>
+                {isPasscodeMode && (
+                  <p className="text-[11px] text-slate-400 font-medium mt-1">
+                    Enter your assigned 6-digit access passcode.
+                  </p>
+                )}
               </div>
               <button
                 type="submit"
@@ -251,15 +313,10 @@ export const Login = () => {
               </button>
             </form>
 
-            <div className="relative flex py-1 items-center justify-center">
-              <div className="w-full border-t border-slate-200"></div>
-              <span className="absolute bg-white px-3 text-xs font-bold text-slate-400 uppercase tracking-wider">or</span>
-            </div>
-
             <button
               type="button"
               onClick={() => setIsRegistering(true)}
-              className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-bold text-sm rounded-xl border border-slate-200/80 shadow-sm transition-all duration-200 text-center cursor-pointer"
+              className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-bold text-sm rounded-xl border border-slate-200/80 shadow-sm transition-all duration-200 text-center cursor-pointer mt-4"
             >
               Create an Account
             </button>
@@ -286,7 +343,7 @@ export const Login = () => {
                     value={regForm.first_name}
                     onChange={handleRegChange}
                     required
-                    className="w-full p-2 border border-slate-200 rounded text-sm"
+                    className={SIGNUP_INPUT_CLASS}
                     placeholder="First"
                   />
                 </div>
@@ -298,7 +355,7 @@ export const Login = () => {
                     value={regForm.last_name}
                     onChange={handleRegChange}
                     required
-                    className="w-full p-2 border border-slate-200 rounded text-sm"
+                    className={SIGNUP_INPUT_CLASS}
                     placeholder="Last"
                   />
                 </div>
@@ -311,7 +368,7 @@ export const Login = () => {
                   value={regForm.position}
                   onChange={handleRegChange}
                   required
-                  className="w-full p-2 border border-slate-200 rounded text-sm"
+                  className={SIGNUP_INPUT_CLASS}
                   placeholder="HRMO II / Auditor"
                 />
               </div>
@@ -323,7 +380,7 @@ export const Login = () => {
                     value={regForm.region_id}
                     onChange={handleRegionChange}
                     required
-                    className="w-full p-2 border border-slate-200 bg-slate-50 rounded text-sm"
+                    className="w-full p-2 border border-slate-200 bg-slate-50 text-slate-900 rounded text-sm focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 [color-scheme:light]"
                   >
                     <option value="">Select Region</option>
                     {regions.map(r => {
@@ -340,7 +397,7 @@ export const Login = () => {
                     onChange={handleRegChange}
                     required
                     disabled={!regForm.region_id}
-                    className="w-full p-2 border border-slate-200 bg-slate-50 rounded text-sm disabled:opacity-50"
+                    className="w-full p-2 border border-slate-200 bg-slate-50 text-slate-900 rounded text-sm disabled:opacity-50 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 [color-scheme:light]"
                   >
                     <option value="">Select Division</option>
                     {filteredDivisions.map(d => {
@@ -359,7 +416,7 @@ export const Login = () => {
                   onChange={handleRegChange}
                   autoComplete="username"
                   required
-                  className="w-full p-2 border border-slate-200 rounded text-sm"
+                  className={SIGNUP_INPUT_CLASS}
                   placeholder="name@deped.gov.ph"
                 />
               </div>
@@ -372,7 +429,7 @@ export const Login = () => {
                   onChange={handleRegChange}
                   autoComplete="new-password"
                   required
-                  className="w-full p-2 border border-slate-200 rounded text-sm"
+                  className={SIGNUP_INPUT_CLASS}
                   placeholder="••••••••"
                 />
               </div>
@@ -385,7 +442,7 @@ export const Login = () => {
                   onChange={handleRegChange}
                   autoComplete="new-password"
                   required
-                  className="w-full p-2 border border-slate-200 rounded text-sm"
+                  className={SIGNUP_INPUT_CLASS}
                   placeholder="••••••••"
                 />
               </div>
@@ -404,10 +461,10 @@ export const Login = () => {
                     maxLength={6}
                     required
                     autoComplete="off"
-                    className={`w-full p-2 pr-9 border rounded text-sm font-mono tracking-widest transition-all ${
+                    className={`${SIGNUP_INPUT_CLASS} pr-9 font-mono tracking-widest transition-all ${
                       /^\d{6}$/.test(regForm.passcode)
-                        ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 ring-2 ring-emerald-500/20'
-                        : 'border-slate-200'
+                        ? '!border-emerald-500 !bg-emerald-50/40 !text-emerald-950 ring-2 ring-emerald-500/20'
+                        : ''
                     }`}
                     placeholder="123456"
                   />

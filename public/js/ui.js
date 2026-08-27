@@ -95,9 +95,9 @@ export const UI = {
             <span class="badge-vacancy-status ${this.getAgingBadgeClass(agingStatus)}">${agingStatus}</span>
           </td>
           <td class="p-2 border-b">
-            <select class="row-position-status font-bold rounded px-2 py-1 text-xs border border-slate-300 shadow-sm ${isComplete ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} cursor-pointer" data-id="${record.id}">
-              <option value="UNFILLED" ${!isComplete ? 'selected' : ''}>UNFILLED</option>
-              <option value="FILLED" ${isComplete ? 'selected' : ''}>FILLED</option>
+            <select class="row-position-status font-bold rounded px-2 py-1 text-xs border shadow-sm ${isComplete ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-100 text-red-800 border-red-300'} cursor-pointer" data-id="${record.id}">
+              <option value="UNFILLED" ${!isComplete ? 'selected' : ''} style="background-color: #fee2e2; color: #991b1b;">UNFILLED</option>
+              <option value="FILLED" ${isComplete ? 'selected' : ''} style="background-color: #dcfce7; color: #166534;">FILLED</option>
             </select>
           </td>
           <td class="p-2 border-b">

@@ -253,6 +253,8 @@ async function importCsvData() {
         dpa_year = EXCLUDED.dpa_year,
         region_id = EXCLUDED.region_id,
         division_id = EXCLUDED.division_id,
+        position_category = EXCLUDED.position_category,
+        item_status = EXCLUDED.item_status,
         position_title = EXCLUDED.position_title,
         sg = EXCLUDED.sg,
         year_created = EXCLUDED.year_created,

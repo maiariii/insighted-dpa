@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DepEd Personnel Audit — Interactive User Guide</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background:
+        radial-gradient(circle at 4% 6%, rgba(147, 197, 253, 0.72), transparent 34%),
+        radial-gradient(circle at 18% 18%, rgba(219, 234, 254, 0.78), transparent 32%),
+        linear-gradient(135deg, #dbeafe 0%, #eff6ff 30%, #bfdbfe 62%, #93c5fd 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+    }
+    .card-glass {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08);
+    }
+    .accordion-content {
+      display: none;
+    }
+    .accordion-content.open {
+      display: block;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8 text-slate-800">
+  <div class="max-w-5xl mx-auto space-y-6">
+    
+    <!-- HEADER & FONT MAGNIFIER TOOLBAR -->
+    <header class="card-glass p-6 md:p-8 rounded-2xl border border-teal-200 shadow-xl bg-gradient-to-br from-teal-500/10 via-white/80 to-amber-500/10">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div class="space-y-2">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-100 text-teal-800 text-xs font-extrabold uppercase tracking-wider">
+            <span>✨</span> Interactive Help Desk & User Guide
+          </div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+            DepEd Personnel Audit — User Guide
+          </h1>
+          <p class="text-slate-600 text-sm md:text-base font-medium max-w-2xl">
+            Step-by-step guidance for HRMOs, Auditors, and Division Personnel. Use the font magnifying panel below to adjust reading sizes.
+          </p>
+        </div>
+
+        <!-- Font Scale Controls -->
+        <div class="bg-white/90 p-4 rounded-xl border border-slate-200 shadow-md flex flex-col gap-3 min-w-[280px]">
+          <div class="flex items-center justify-between">
+            <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+              🔍 Text Size Controls
+            </span>
+            <span id="scale-badge" class="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
+              100%
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <button
+              id="btn-scale-100"
+              onclick="setFontScale(1.0)"
+              class="px-3 py-2 text-xs font-bold rounded-lg transition-all border bg-teal-600 text-white border-teal-600 shadow-sm"
+            >
+              A Default
+            </button>
+            <button
+              id="btn-scale-120"
+              onclick="setFontScale(1.2)"
+              class="px-3 py-2 text-sm font-bold rounded-lg transition-all border bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+            >
+              A+ Large
+            </button>
+            <button
+              id="btn-scale-140"
+              onclick="setFontScale(1.4)"
+              class="px-3 py-2 text-base font-extrabold rounded-lg transition-all border bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+            >
+              A++ XL
+            </button>
+          </div>
+
+          <div class="flex justify-between items-center text-[11px] text-slate-500 pt-1">
+            <span>Saved locally</span>
+            <button onclick="setFontScale(1.0)" class="hover:text-teal-600 underline font-medium">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <span class="text-xs font-bold text-slate-600">📖 5 Interactive Guide Modules</span>
+        <div class="flex items-center gap-2">
+          <button onclick="expandAll()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Expand All</button>
+          <button onclick="collapseAll()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">Collapse All</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT WRAPPER WITH DYNAMIC FONT SCALING -->
+    <main id="content-container" class="space-y-4 text-base">
+
+      <!-- SECTION 1 -->
+      <div class="card-glass rounded-2xl border border-slate-200 overflow-hidden">
+        <button onclick="toggleAccordion('sec1')" class="w-full p-5 text-left flex items-center justify-between bg-slate-50/60 hover:bg-teal-50/50 transition-colors">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg border border-teal-200">1</div>
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-lg">Accessing the Portal (Login & Registration)</h2>
+              <p class="text-slate-500 text-xs">Official email domain requirements, registration procedure, and sign-in steps.</p>
+            </div>
+          </div>
+          <span id="sec1-icon" class="text-slate-400 font-bold text-xl">▼</span>
+        </button>
+
+        <div id="sec1" class="accordion-content open p-6 space-y-4 border-t border-slate-200 bg-white/50">
+          <div class="p-4 rounded-xl bg-emerald-50 border-2 border-emerald-400 flex items-start gap-3">
+            <span class="text-emerald-600 text-xl font-bold">✓</span>
+            <div>
+              <span class="font-extrabold text-emerald-900 uppercase text-xs tracking-wide">Mandatory Rule: DepEd Official Email</span>
+              <p class="text-emerald-800 font-medium mt-1">
+                All user accounts must register using an official email ending in <code class="bg-emerald-100 px-2 py-0.5 rounded font-bold border border-emerald-300">@deped.gov.ph</code>. Personal domains (@gmail.com, @yahoo.com) are automatically blocked for security compliance.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4 pt-2">
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="font-bold text-slate-800 flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs">A</span> Step 1: Registration
+              </div>
+              <ul class="list-disc list-inside text-slate-600 space-y-1">
+                <li>Click <strong>Register HRMO Account</strong> on the login screen.</li>
+                <li>Enter your First Name, Last Name, and Position Title.</li>
+                <li>Select your assigned <strong>Region</strong> and <strong>Division Office</strong>.</li>
+                <li>Create a strong password (minimum 8 characters).</li>
+              </ul>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="font-bold text-slate-800 flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs">B</span> Step 2: Signing In
+              </div>
+              <ul class="list-disc list-inside text-slate-600 space-y-1">
+                <li>Provide your valid <code class="text-teal-600 font-bold">@deped.gov.ph</code> email address.</li>
+                <li>Enter your registered account password.</li>
+                <li>Click <strong>Sign In to Portal</strong> to load your Division's live audit ledger.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2 -->
+      <div class="card-glass rounded-2xl border border-slate-200 overflow-hidden">
+        <button onclick="toggleAccordion('sec2')" class="w-full p-5 text-left flex items-center justify-between bg-slate-50/60 hover:bg-teal-50/50 transition-colors">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg border border-teal-200">2</div>
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-lg">Doing the Personnel Audit (Grid Ledger Rules)</h2>
+              <p class="text-slate-500 text-xs">Editing permissions, uppercase name auto-transformation, and popover date entry rules.</p>
+            </div>
+          </div>
+          <span id="sec2-icon" class="text-slate-400 font-bold text-xl">▶</span>
+        </button>
+
+        <div id="sec2" class="accordion-content p-6 space-y-4 border-t border-slate-200 bg-white/50">
+          <p class="text-slate-700">
+            The Personnel Audit module displays all unfilled plantilla items within your assigned division. Items are segregated into <strong>Teaching</strong>, <strong>Non-Teaching</strong>, and <strong>Teaching-Related</strong> tabs.
+          </p>
+
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="p-4 rounded-xl bg-amber-50 border border-amber-300 space-y-1">
+              <span class="text-xs font-bold text-amber-800 uppercase tracking-wider">✏️ Editable Fields</span>
+              <p class="text-amber-950 text-sm">
+                HRMOs can only edit fields located to the <strong>RIGHT</strong> of <em>Position Status</em> (e.g. Incumbent Name, Date of Vacancy, Reason for Vacancy, Status of Vacancy).
+              </p>
+            </div>
+            <div class="p-4 rounded-xl bg-blue-50 border border-blue-300 space-y-1">
+              <span class="text-xs font-bold text-blue-800 uppercase tracking-wider">🔤 Uppercase Names</span>
+              <p class="text-blue-950 text-sm">
+                The <em>Name of Incumbent</em> field automatically converts text into <strong>UPPERCASE</strong> (e.g. "juan dela cruz" becomes "JUAN DELA CRUZ").
+              </p>
+            </div>
+            <div class="p-4 rounded-xl bg-purple-50 border border-purple-300 space-y-1">
+              <span class="text-xs font-bold text-purple-800 uppercase tracking-wider">📅 Popover Pickers</span>
+              <p class="text-purple-950 text-sm">
+                All date cells require selecting from the interactive calendar popover instead of manual typing to guarantee correct date formats.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3 -->
+      <div class="card-glass rounded-2xl border border-slate-200 overflow-hidden">
+        <button onclick="toggleAccordion('sec3')" class="w-full p-5 text-left flex items-center justify-between bg-slate-50/60 hover:bg-teal-50/50 transition-colors">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg border border-teal-200">3</div>
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-lg">Audit Remarks & Popup Modal History</h2>
+              <p class="text-slate-500 text-xs">Using the blue "+" button to record timestamped remarks without data loss.</p>
+            </div>
+          </div>
+          <span id="sec3-icon" class="text-slate-400 font-bold text-xl">▶</span>
+        </button>
+
+        <div id="sec3" class="accordion-content p-6 space-y-4 border-t border-slate-200 bg-white/50">
+          <div class="p-4 rounded-xl bg-blue-50 border border-blue-200 space-y-2">
+            <h3 class="font-bold text-blue-900 text-sm">💬 Structured Audit Logs via Blue "+" Button</h3>
+            <p class="text-blue-950">
+              Each plantilla row features a blue <strong>+</strong> button in the <em>Remarks</em> column. Clicking this button opens a modal dialog that preserves historical commentary.
+            </p>
+          </div>
+          <ol class="list-decimal list-inside text-slate-700 space-y-2">
+            <li>Locate the target plantilla item row in the audit table.</li>
+            <li>Click the blue <strong>+</strong> button in the Remarks column.</li>
+            <li>Review previous timestamped remarks logged by fellow officers.</li>
+            <li>Type your new update into the text box and click <strong>Save Remark</strong>.</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- SECTION 4 -->
+      <div class="card-glass rounded-2xl border border-slate-200 overflow-hidden">
+        <button onclick="toggleAccordion('sec4')" class="w-full p-5 text-left flex items-center justify-between bg-slate-50/60 hover:bg-teal-50/50 transition-colors">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg border border-teal-200">4</div>
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-lg">Action Plans (Interventions Workspace)</h2>
+              <p class="text-slate-500 text-xs">Visual card decks for strategic interventions, expected outcomes, and deletion safety.</p>
+            </div>
+          </div>
+          <span id="sec4-icon" class="text-slate-400 font-bold text-xl">▶</span>
+        </button>
+
+        <div id="sec4" class="accordion-content p-6 space-y-4 border-t border-slate-200 bg-white/50">
+          <p class="text-slate-700">
+            Part II of the system shifts from individual row edits to strategic division-wide action plans designed to resolve long-term unfilled positions.
+          </p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-800 text-sm">🎯 Visual Card Deck Layout</span>
+              <p class="text-slate-600">Interventions are displayed as intuitive cards showcasing Category, Target Date, and Responsible Office.</p>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+              <span class="font-bold text-slate-800 text-sm">🛡️ Deletion Safety Gates</span>
+              <p class="text-slate-600">Deleting an intervention card requires confirmation in a safety modal to prevent accidental data loss.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 5 -->
+      <div class="card-glass rounded-2xl border border-slate-200 overflow-hidden">
+        <button onclick="toggleAccordion('sec5')" class="w-full p-5 text-left flex items-center justify-between bg-slate-50/60 hover:bg-teal-50/50 transition-colors">
+          <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg border border-teal-200">5</div>
+            <div>
+              <h2 class="font-extrabold text-slate-900 text-lg">Account Security & Collaborator Invites</h2>
+              <p class="text-slate-500 text-xs">6-digit passcode lock gate and managing helper accounts in your division.</p>
+            </div>
+          </div>
+          <span id="sec5-icon" class="text-slate-400 font-bold text-xl">▶</span>
+        </button>
+
+        <div id="sec5" class="accordion-content p-6 space-y-4 border-t border-slate-200 bg-white/50">
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-1">
+              <span class="font-bold text-amber-900 text-sm">🔒 6-Digit Passcode Gate</span>
+              <p class="text-amber-950">Settings are locked behind a verified 6-digit passcode to protect account configuration and division parameters.</p>
+            </div>
+            <div class="p-4 rounded-xl bg-teal-50 border border-teal-200 space-y-1">
+              <span class="font-bold text-teal-900 text-sm">👥 Division Collaborator Helpers</span>
+              <p class="text-teal-950">Host HRMOs can invite collaborator helper accounts who inherit the host's assigned Region and Division Office scope.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ACCESSIBILITY FEATURES BLOCK -->
+    <footer class="card-glass p-6 md:p-8 rounded-2xl border-2 border-amber-300 bg-gradient-to-r from-amber-500/10 via-white/80 to-teal-500/10">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="p-2.5 rounded-xl bg-amber-500 text-white font-bold text-xl">❓</span>
+        <div>
+          <h2 class="text-lg md:text-xl font-extrabold text-slate-900">Accessibility Features</h2>
+          <p class="text-xs text-slate-600">Simple screen and contrast settings to make audit management easier on your eyes.</p>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4 pt-2 text-sm">
+        <div class="p-4 rounded-xl bg-white border border-slate-200 space-y-1">
+          <strong class="text-slate-900 block">🖥️ Browser Zoom Keyboard Shortcuts</strong>
+          <p class="text-slate-600">Press <kbd class="px-1.5 py-0.5 bg-slate-100 font-mono text-xs rounded border">Ctrl</kbd> + <kbd class="px-1.5 py-0.5 bg-slate-100 font-mono text-xs rounded border">+</kbd> to zoom in and make the screen bigger. Press <kbd class="px-1.5 py-0.5 bg-slate-100 font-mono text-xs rounded border">Ctrl</kbd> + <kbd class="px-1.5 py-0.5 bg-slate-100 font-mono text-xs rounded border">0</kbd> to return to normal size.</p>
+        </div>
+        <div class="p-4 rounded-xl bg-white border border-slate-200 space-y-1">
+          <strong class="text-slate-900 block">🌙 Dark / Light Contrast Switch</strong>
+          <p class="text-slate-600">Use the <strong>Light Mode / Dark Mode</strong> switch on the sidebar to change display brightness based on your room lighting.</p>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    function setFontScale(scale) {
+      localStorage.setItem('dpa_guide_font_scale', scale);
+      const container = document.getElementById('content-container');
+      const badge = document.getElementById('scale-badge');
+      
+      const b100 = document.getElementById('btn-scale-100');
+      const b120 = document.getElementById('btn-scale-120');
+      const b140 = document.getElementById('btn-scale-140');
+
+      // Reset classes
+      b100.className = "px-3 py-2 text-xs font-bold rounded-lg border bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200";
+      b120.className = "px-3 py-2 text-sm font-bold rounded-lg border bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200";
+      b140.className = "px-3 py-2 text-base font-extrabold rounded-lg border bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200";
+
+      if (scale >= 1.4) {
+        container.className = "space-y-4 text-xl leading-relaxed";
+        badge.textContent = "140%";
+        b140.className = "px-3 py-2 text-base font-extrabold rounded-lg border bg-teal-600 text-white border-teal-600 shadow-sm";
+      } else if (scale >= 1.2) {
+        container.className = "space-y-4 text-lg leading-relaxed";
+        badge.textContent = "120%";
+        b120.className = "px-3 py-2 text-sm font-bold rounded-lg border bg-teal-600 text-white border-teal-600 shadow-sm";
+      } else {
+        container.className = "space-y-4 text-base leading-relaxed";
+        badge.textContent = "100%";
+        b100.className = "px-3 py-2 text-xs font-bold rounded-lg border bg-teal-600 text-white border-teal-600 shadow-sm";
+      }
+    }
+
+    function toggleAccordion(id) {
+      const content = document.getElementById(id);
+      const icon = document.getElementById(id + '-icon');
+      if (content.classList.contains('open')) {
+        content.classList.remove('open');
+        icon.textContent = '▶';
+      } else {
+        content.classList.add('open');
+        icon.textContent = '▼';
+      }
+    }
+
+    function expandAll() {
+      ['sec1', 'sec2', 'sec3', 'sec4', 'sec5'].forEach(id => {
+        const content = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        content.classList.add('open');
+        icon.textContent = '▼';
+      });
+    }
+
+    function collapseAll() {
+      ['sec1', 'sec2', 'sec3', 'sec4', 'sec5'].forEach(id => {
+        const content = document.getElementById(id);
+        const icon = document.getElementById(id + '-icon');
+        content.classList.remove('open');
+        icon.textContent = '▶';
+      });
+    }
+
+    // Load saved preference on startup
+    window.addEventListener('DOMContentLoaded', () => {
+      const saved = localStorage.getItem('dpa_guide_font_scale');
+      if (saved) {
+        setFontScale(parseFloat(saved));
+      }
+    });
+  </script>
+</body>
+</html>

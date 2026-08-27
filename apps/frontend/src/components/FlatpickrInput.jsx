@@ -15,6 +15,12 @@ export const FlatpickrInput = ({
   const inputRef = useRef(null);
   const fpInstanceRef = useRef(null);
 
+  const cleanDateVal = (val) => {
+    if (!val || val === 'N/A' || val === 'null' || val === 'undefined') return undefined;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? undefined : val;
+  };
+
   useEffect(() => {
     if (!inputRef.current || disabled) {
       if (fpInstanceRef.current) {
@@ -24,18 +30,22 @@ export const FlatpickrInput = ({
       return;
     }
 
-    fpInstanceRef.current = flatpickr(inputRef.current, {
-      dateFormat: 'Y-m-d',
-      defaultDate: value || undefined,
-      changeMonth: true,
-      changeYear: true,
-      allowInput,
-      minDate,
-      clickOpens: true,
-      onChange: (selectedDates, dateStr) => {
-        if (onChange) onChange(dateStr);
-      }
-    });
+    try {
+      fpInstanceRef.current = flatpickr(inputRef.current, {
+        dateFormat: 'Y-m-d',
+        defaultDate: cleanDateVal(value),
+        changeMonth: true,
+        changeYear: true,
+        allowInput,
+        minDate,
+        clickOpens: true,
+        onChange: (selectedDates, dateStr) => {
+          if (onChange) onChange(dateStr);
+        }
+      });
+    } catch (err) {
+      console.warn('Flatpickr init warning:', err);
+    }
 
     return () => {
       if (fpInstanceRef.current) {
@@ -47,7 +57,16 @@ export const FlatpickrInput = ({
 
   useEffect(() => {
     if (fpInstanceRef.current && value !== undefined) {
-      fpInstanceRef.current.setDate(value || '', false);
+      const clean = cleanDateVal(value);
+      try {
+        if (clean) {
+          fpInstanceRef.current.setDate(clean, false);
+        } else {
+          fpInstanceRef.current.clear(false);
+        }
+      } catch (err) {
+        console.warn('Flatpickr setDate error:', err);
+      }
     }
   }, [value]);
 
@@ -62,6 +81,8 @@ export const FlatpickrInput = ({
     );
   }
 
+  const displayVal = value && value !== 'N/A' && value !== 'null' ? value : '';
+
   return (
     <input
       ref={inputRef}
@@ -69,7 +90,10 @@ export const FlatpickrInput = ({
       autoComplete="off"
       placeholder={placeholder}
       className={className || "form-input border rounded px-2 py-1 text-xs w-full bg-white text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-white dark:border-slate-600"}
-      defaultValue={value || ''}
+      value={displayVal}
+      onChange={(e) => {
+        if (onChange) onChange(e.target.value);
+      }}
       readOnly={readOnly}
     />
   );

@@ -96,6 +96,18 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
+  const loginPasscode = async (email, passcode) => {
+    const res = await API.auth.loginPasscode(email, passcode);
+    const newToken = res.token || (res.data && res.data.token);
+    const newUser = res.user || (res.data && res.data.user);
+
+    if (newToken) {
+      setToken(newToken);
+      if (newUser) setUser(newUser);
+    }
+    return res;
+  };
+
   const register = async (payload) => {
     const res = await API.auth.register(payload);
     const newToken = res.token || (res.data && res.data.token);
@@ -109,7 +121,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, setUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, loginPasscode, register, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

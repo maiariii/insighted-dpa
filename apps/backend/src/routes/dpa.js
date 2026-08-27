@@ -291,20 +291,25 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
     const db = req.app.get("dbClient");
 
     if (db && typeof db.query === "function") {
+      // Fetch existing record to check scope boundaries and merge fields for audit completion calculation
+      const checkSql = `SELECT * FROM personnel_audits WHERE id::text = $1 OR item_number = $1;`;
+      const checkRes = await db.query(checkSql, [id]);
+      const existingRec = checkRes.rows && checkRes.rows.length > 0 ? checkRes.rows[0] : null;
+
+      if (!existingRec) {
+        return res.status(404).json({ success: false, error: "Record not found." });
+      }
+
       // Authorization boundary check: enforce regional/divisional scope for non-admin users
       if (req.user && (req.user.region_id || req.user.division_id)) {
-        const checkSql = `SELECT region_id, division_id FROM personnel_audits WHERE id::text = $1 OR item_number = $1;`;
-        const checkRes = await db.query(checkSql, [id]);
-        if (checkRes.rows && checkRes.rows.length > 0) {
-          const rec = checkRes.rows[0];
-          if (req.user.region_id && rec.region_id && rec.region_id !== req.user.region_id && !rec.region_id.includes(req.user.region_id)) {
-            return res.status(403).json({ success: false, error: "Forbidden: Cannot modify records outside assigned region." });
-          }
-          if (req.user.division_id && rec.division_id && rec.division_id !== req.user.division_id && !rec.division_id.includes(req.user.division_id)) {
-            return res.status(403).json({ success: false, error: "Forbidden: Cannot modify records outside assigned division." });
-          }
+        if (req.user.region_id && existingRec.region_id && existingRec.region_id !== req.user.region_id && !existingRec.region_id.includes(req.user.region_id)) {
+          return res.status(403).json({ success: false, error: "Forbidden: Cannot modify records outside assigned region." });
+        }
+        if (req.user.division_id && existingRec.division_id && existingRec.division_id !== req.user.division_id && !existingRec.division_id.includes(req.user.division_id)) {
+          return res.status(403).json({ success: false, error: "Forbidden: Cannot modify records outside assigned division." });
         }
       }
+
       const allowedFields = [
         "region_id",
         "division_id",
@@ -316,7 +321,6 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         "status_of_vacancy",
         "other_remarks",
         "tentative_date_to_fill_up",
-        "item_status",
         "is_audited"
       ];
 
@@ -332,18 +336,22 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         }
       }
 
-      if (cleanPayload.position_status === "UNFILLED") {
+      const effectivePosStatus = String(cleanPayload.position_status || existingRec.position_status || "UNFILLED").toUpperCase();
+
+      if (effectivePosStatus === "UNFILLED") {
+        cleanPayload.position_status = "UNFILLED";
         cleanPayload.name_of_incumbent = null;
         cleanPayload.first_day_of_service = null;
-        // A vacancy record counts as a finalized audit once its required
-        // vacancy fields (reason, status, tentative fill-up date) are all
-        // captured — not only once the position is FILLED. This mirrors the
-        // client-side computation and is what actually moves the row into the
-        // Finalized / Audited Personnel Records table on the next fetch.
-        cleanPayload.is_audited = !!(
-          cleanPayload.reason_for_vacancy && cleanPayload.status_of_vacancy && cleanPayload.tentative_date_to_fill_up
-        );
-      } else if (cleanPayload.position_status === "FILLED") {
+
+        const effectiveReason = cleanPayload.reason_for_vacancy !== undefined ? cleanPayload.reason_for_vacancy : existingRec.reason_for_vacancy;
+        const effectiveStatus = cleanPayload.status_of_vacancy !== undefined ? cleanPayload.status_of_vacancy : existingRec.status_of_vacancy;
+        const effectiveTentative = cleanPayload.tentative_date_to_fill_up !== undefined ? cleanPayload.tentative_date_to_fill_up : existingRec.tentative_date_to_fill_up;
+
+        const isAuditedCalculated = !!(effectiveReason && String(effectiveReason).trim() && effectiveStatus && String(effectiveStatus).trim() && effectiveTentative && String(effectiveTentative).trim());
+        const isAlreadyAudited = existingRec.is_audited === true || String(existingRec.item_status).toLowerCase() === 'audited';
+        cleanPayload.is_audited = payload.is_audited !== undefined ? payload.is_audited : (isAuditedCalculated || isAlreadyAudited);
+      } else if (effectivePosStatus === "FILLED") {
+        cleanPayload.position_status = "FILLED";
         if (cleanPayload.name_of_incumbent) {
           cleanPayload.name_of_incumbent = String(cleanPayload.name_of_incumbent).toUpperCase();
         }
@@ -351,7 +359,13 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         cleanPayload.status_of_vacancy = null;
         cleanPayload.date_of_vacancy = null;
         cleanPayload.tentative_date_to_fill_up = null;
-        cleanPayload.is_audited = !!(cleanPayload.name_of_incumbent && cleanPayload.first_day_of_service);
+
+        const effectiveIncumbent = cleanPayload.name_of_incumbent !== undefined ? cleanPayload.name_of_incumbent : existingRec.name_of_incumbent;
+        const effectiveFirstDay = cleanPayload.first_day_of_service !== undefined ? cleanPayload.first_day_of_service : existingRec.first_day_of_service;
+
+        const isAuditedCalculated = !!(effectiveIncumbent && String(effectiveIncumbent).trim() && effectiveFirstDay && String(effectiveFirstDay).trim());
+        const isAlreadyAudited = existingRec.is_audited === true || String(existingRec.item_status).toLowerCase() === 'audited';
+        cleanPayload.is_audited = payload.is_audited !== undefined ? payload.is_audited : (isAuditedCalculated || isAlreadyAudited);
       }
 
       const setClauses = [];
@@ -496,6 +510,82 @@ router.post(
 );
 
 /**
+ * PUT /api/personnel-audit/interventions/:id
+ */
+router.put(
+  ["/interventions/:id", "/personnel-audit/interventions/:id", "/api/personnel-audit/interventions/:id", "/insighted-dpa/api/personnel-audit/interventions/:id"],
+  verifyToken,
+  validateBody(InterventionCreateSchema),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id || null;
+      const payload = req.validatedBody || req.body || {};
+      const { area_of_concern, intervention_to_undertake, responsible_office, target_date, expected_outcomes, remarks } = payload;
+
+      if (!id || id === "undefined" || id === "null") {
+        return res.status(400).json({ success: false, error: "Invalid or missing intervention ID." });
+      }
+
+      const userName = `${req.user?.first_name || ''} ${req.user?.last_name || 'HRMO'}`.trim() || "Personnel Auditor";
+
+      let outcomesData = [];
+      if (Array.isArray(expected_outcomes)) {
+        outcomesData = expected_outcomes.filter(o => o && String(o).trim() !== "");
+      } else if (typeof expected_outcomes === "object" && expected_outcomes !== null) {
+        outcomesData = expected_outcomes;
+      } else if (typeof expected_outcomes === "string" && expected_outcomes.trim() !== "") {
+        outcomesData = [{ text: expected_outcomes.trim() }];
+      }
+
+      let remarksData = [];
+      if (Array.isArray(remarks)) {
+        remarksData = remarks.filter(r => r && String(r).trim() !== "");
+      } else if (typeof remarks === "object" && remarks !== null) {
+        remarksData = remarks;
+      } else if (typeof remarks === "string" && remarks.trim() !== "") {
+        remarksData = [{ text: remarks.trim(), by: userName, at: new Date().toISOString() }];
+      }
+
+      const db = req.app.get("dbClient");
+      const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
+
+      const updateQuery = `
+        UPDATE other_interventions
+        SET area_of_concern = $1,
+            intervention_to_undertake = $2,
+            responsible_office = $3,
+            target_date = $4,
+            expected_outcomes = $5,
+            remarks = $6,
+            updated_at = NOW()
+        WHERE id::text = $7 AND (user_id = $8 OR $8 IS NULL)
+        RETURNING *;
+      `;
+
+      const result = await queryFn(updateQuery, [
+        String(area_of_concern).trim(),
+        String(intervention_to_undertake).trim(),
+        String(responsible_office).trim(),
+        target_date,
+        JSON.stringify(outcomesData),
+        JSON.stringify(remarksData),
+        id,
+        userId
+      ]);
+
+      if (result.rows && result.rows.length > 0) {
+        return res.json({ success: true, message: "Intervention updated successfully.", intervention: result.rows[0] });
+      }
+      return res.status(404).json({ success: false, error: "Intervention record not found or access denied." });
+    } catch (err) {
+      console.error("Error updating intervention:", err);
+      res.status(500).json({ success: false, error: "Internal database error updating intervention." });
+    }
+  }
+);
+
+/**
  * DELETE /api/personnel-audit/interventions/:id
  */
 router.delete(
@@ -505,21 +595,29 @@ router.delete(
     try {
       const { id } = req.params;
       const userId = req.user?.id || null;
+      if (!id || id === "undefined" || id === "null") {
+        return res.status(400).json({ success: false, error: "Invalid or missing intervention ID." });
+      }
+
       const db = req.app.get("dbClient");
       const queryFn = (db && typeof db.query === "function") ? db.query.bind(db) : query;
 
       const result = await queryFn(
-        "DELETE FROM other_interventions WHERE (id::text = $1 OR id = $1) AND (user_id = $2 OR $2 IS NULL) RETURNING id;",
+        "DELETE FROM other_interventions WHERE id::text = $1 AND (user_id = $2 OR $2 IS NULL) RETURNING id;",
         [id, userId]
       );
 
       if (result.rows && result.rows.length > 0) {
         return res.json({ success: true, message: "Intervention deleted successfully.", id: result.rows[0].id });
       }
-      return res.status(404).json({ success: false, error: "Intervention record not found or unauthorized." });
+      return res.status(404).json({ success: false, error: "Intervention record not found or access denied." });
     } catch (err) {
       console.error("Error deleting intervention:", err);
-      res.status(500).json({ success: false, error: "Failed to delete intervention record." });
+      let errorMessage = err.detail || err.message || "Failed to delete intervention record.";
+      if (err.code === "23503") {
+        errorMessage = `Cannot delete: linked to dependent records (${err.detail || "foreign key constraint"}).`;
+      }
+      res.status(400).json({ success: false, error: errorMessage });
     }
   }
 );

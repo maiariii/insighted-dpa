@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, ClipboardList, Lightbulb, Settings, Moon, Sun, LogOut } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Lightbulb, BookOpen, Settings, Moon, Sun, LogOut } from 'lucide-react';
 
 export const Sidebar = () => {
   const { user, logout } = useAuth();
@@ -28,10 +28,10 @@ export const Sidebar = () => {
 
       <hr className="sidebar-divider" />
 
-      <div className="profile-card collapsible-text">
-        <strong className="text-sm font-bold text-slate-800 dark:text-white">{fullName}</strong>
-        <span className="text-xs text-slate-500 dark:text-slate-400 block">{position}</span>
-        <span className="text-xs text-slate-400 dark:text-slate-500 block">{location}</span>
+      <div className="profile-card collapsible-text flex flex-col justify-center space-y-1 my-2">
+        <strong className="text-sm font-bold text-slate-800 dark:text-white block leading-snug break-words">{fullName}</strong>
+        <span className="text-xs font-medium text-slate-600 dark:text-slate-300 block leading-snug break-words">{position}</span>
+        <span className="text-xs text-slate-400 dark:text-slate-400 block leading-snug break-words mt-0.5">{location}</span>
       </div>
 
       <nav className="nav" aria-label="Primary navigation">
@@ -46,6 +46,10 @@ export const Sidebar = () => {
         <NavLink to="/interventions" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="icon"><Lightbulb size={18} /></span>
           <span className="collapsible-text">Interventions</span>
+        </NavLink>
+        <NavLink to="/guide" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <span className="icon"><BookOpen size={18} /></span>
+          <span className="collapsible-text">User Guide</span>
         </NavLink>
         <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="icon"><Settings size={18} /></span>
@@ -66,9 +70,9 @@ export const Sidebar = () => {
       <button
         type="button"
         id="btn-signout"
-        className="btn secondary sidebar-signout-btn"
+        className="btn secondary sidebar-signout-btn flex items-center justify-center text-center"
         onClick={logout}
-        style={{ minHeight: '42px', marginTop: '8px', display: 'flex', alignItems: 'center', justify: 'center', gap: '8px', fontWeight: 800, color: '#dc2626', borderColor: 'rgba(220, 38, 38, 0.2)', background: 'rgba(254, 226, 226, 0.4)' }}
+        style={{ minHeight: '42px', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 800, color: '#dc2626', borderColor: 'rgba(220, 38, 38, 0.2)', background: 'rgba(254, 226, 226, 0.4)' }}
       >
         <LogOut size={18} />
         <span className="collapsible-text">Sign Out</span>

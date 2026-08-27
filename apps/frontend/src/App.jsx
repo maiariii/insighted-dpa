@@ -9,6 +9,7 @@ import { HomeDashboard } from './pages/HomeDashboard';
 import { AuditDashboard } from './pages/AuditDashboard';
 import { Interventions } from './pages/Interventions';
 import { Settings } from './pages/Settings';
+import { UserGuide } from './pages/UserGuide';
 
 const HeaderTitleMapper = () => {
   const location = useLocation();
@@ -21,6 +22,9 @@ const HeaderTitleMapper = () => {
   } else if (location.pathname === '/interventions') {
     title = 'Interventions Workspace';
     subtitle = 'Part II: Strategic actions designed to accelerate vacancy processing.';
+  } else if (location.pathname === '/guide') {
+    title = 'DepEd Personnel Audit — Interactive Help Desk';
+    subtitle = 'Comprehensive user guide, visual tutorials, and elder-friendly font scaling controls.';
   } else if (location.pathname === '/settings') {
     title = 'HRMO Settings & Collaborators';
     subtitle = 'Manage account scope and invite collaboration helpers.';
@@ -56,6 +60,7 @@ const MainLayout = () => {
           <Route path="/" element={<HomeDashboard />} />
           <Route path="/audit" element={<AuditDashboard />} />
           <Route path="/interventions" element={<Interventions />} />
+          <Route path="/guide" element={<UserGuide />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

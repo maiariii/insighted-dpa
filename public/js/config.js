@@ -56,7 +56,7 @@ export const STATUSES_OF_VACANCY = [
   "On-going Hiring Process - Initial Evaluation Stage",
   "On-going Hiring Process - Publication Stage",
   "On-going Hiring Process - Selection & Appointment Stage",
-  "Positions not consistent in the ECP",
+  "Position is not consistent in the ECP",
   "Waiving of Items Under Special Hiring Arrangements - DOST scholar graduates",
   "Waiving of Items Under Special Hiring Arrangements - SPIMS beneficiaries"
 ];

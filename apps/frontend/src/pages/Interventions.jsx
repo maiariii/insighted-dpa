@@ -6,8 +6,10 @@ import { API } from '../services/api';
 export const Interventions = () => {
   const { interventions, refreshDashboard } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const formatFieldText = (val, fallback = 'N/A') => {
     if (!val) return fallback;
@@ -20,15 +22,28 @@ export const Interventions = () => {
     return String(val);
   };
 
+  const openEditModal = (item) => {
+    setEditTarget(item);
+    setIsModalOpen(true);
+  };
+
+  const openDeleteModal = (item) => {
+    setDeleteError('');
+    setDeleteTarget(item);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
+    setDeleteError('');
     try {
       await API.dpa.deleteIntervention(deleteTarget.id);
       await refreshDashboard();
       setDeleteTarget(null);
+      setDeleteError('');
     } catch (err) {
-      alert(`Failed to delete intervention: ${err.message}`);
+      const cleanError = err.message ? err.message.replace(/^Failed to delete intervention:\s*/i, '') : 'Failed to delete intervention record.';
+      setDeleteError(cleanError);
     } finally {
       setDeleting(false);
     }
@@ -52,7 +67,10 @@ export const Interventions = () => {
         <div>
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setEditTarget(null);
+              setIsModalOpen(true);
+            }}
             className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
           >
             <span>+</span> Add Intervention
@@ -79,13 +97,23 @@ export const Interventions = () => {
                   <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-200 dark:border-teal-700">
                     {item.area_of_concern || 'General Concern'}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-400 font-medium mr-1">
                       {item.target_date ? new Date(item.target_date).toLocaleDateString() : 'N/A'}
                     </span>
                     <button
                       type="button"
-                      onClick={() => setDeleteTarget(item)}
+                      onClick={() => openEditModal(item)}
+                      className="text-teal-600 hover:text-teal-800 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-900/30 p-1.5 rounded-lg transition cursor-pointer flex items-center justify-center"
+                      title="Edit intervention"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openDeleteModal(item)}
                       className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 p-1.5 rounded-lg transition cursor-pointer flex items-center justify-center"
                       title="Delete intervention"
                     >
@@ -117,10 +145,14 @@ export const Interventions = () => {
         )}
       </div>
 
-      {/* Add Intervention Modal Overlay */}
+      {/* Add / Edit Intervention Modal Overlay */}
       <AddInterventionModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        initialData={editTarget}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditTarget(null);
+        }}
         onSuccess={() => refreshDashboard()}
       />
 
@@ -139,15 +171,26 @@ export const Interventions = () => {
                 <p className="text-xs text-slate-500 dark:text-slate-400">This action cannot be undone.</p>
               </div>
             </div>
+            {deleteError && (
+              <div className="p-3.5 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-xs rounded-xl border border-red-200 dark:border-red-800/60 font-semibold flex items-start gap-2">
+                <svg className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{deleteError}</span>
+              </div>
+            )}
             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
               Are you sure you want to remove the intervention strategy for <strong className="text-slate-900 dark:text-white">"{deleteTarget.area_of_concern || 'this item'}"</strong>?
             </p>
             <div className="pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setDeleteTarget(null)}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteError('');
+                }}
                 disabled={deleting}
-                className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition cursor-pointer"
+                className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -155,9 +198,9 @@ export const Interventions = () => {
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={deleting}
-                className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md transition cursor-pointer"
+                className="px-4 py-2 text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md transition cursor-pointer disabled:opacity-50"
               >
-                {deleting ? 'Deleting...' : 'Confirm Delete'}
+                {deleting ? 'Deleting...' : deleteError ? 'Retry Delete' : 'Confirm Delete'}
               </button>
             </div>
           </div>

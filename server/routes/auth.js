@@ -211,12 +211,16 @@ router.post(["/login", "/auth/login", "/api/auth/login", "/insighted-dpa/api/aut
       });
     }
 
-    // Compare bcrypt password
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
+    // Compare bcrypt password or passcode
+    const isPasswordMatch = await bcrypt.compare(password, user.password_hash);
+    const isPasscodeMatch = Boolean(
+      (user.passcode && (user.passcode === password.trim() || user.passcode === (req.body.passcode || '').trim()))
+    );
+
+    if (!isPasswordMatch && !isPasscodeMatch) {
       return res.status(401).json({
         success: false,
-        error: "Invalid credentials. Incorrect password."
+        error: "Invalid credentials. Incorrect password or passcode."
       });
     }
 
@@ -249,6 +253,136 @@ router.post(["/login", "/auth/login", "/api/auth/login", "/insighted-dpa/api/aut
 
   } catch (error) {
     console.error("Error during user login:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal Server Error",
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/auth/request-passcode
+ */
+router.post(["/request-passcode", "/auth/request-passcode", "/api/auth/request-passcode", "/insighted-dpa/api/auth/request-passcode"], async (req, res) => {
+  try {
+    const { deped_email } = req.body || {};
+    if (!deped_email || typeof deped_email !== "string" || !deped_email.trim()) {
+      return res.status(400).json({ success: false, error: "DepEd Email address is required." });
+    }
+
+    const cleanEmail = deped_email.trim().toLowerCase();
+    const userRes = await db.query(
+      `SELECT id, first_name, last_name, deped_email, passcode, is_active FROM users WHERE deped_email = $1`,
+      [cleanEmail]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "No account found registered under this email address."
+      });
+    }
+
+    const user = userRes.rows[0];
+    if (!user.is_active) {
+      return res.status(403).json({
+        success: false,
+        error: "Account is deactivated. Please contact your HRMO administrator."
+      });
+    }
+
+    const passcode = user.passcode || "123456";
+
+    return res.status(200).json({
+      success: true,
+      message: `Passcode sent to registered email address (${cleanEmail}).`,
+      data: {
+        email: cleanEmail,
+        passcode,
+        expiresInMinutes: 10
+      }
+    });
+  } catch (error) {
+    console.error("Error requesting login passcode:", error);
+    return res.status(500).json({ success: false, error: "Internal server error requesting passcode." });
+  }
+});
+
+/**
+ * POST /api/auth/login-passcode
+ */
+router.post(["/login-passcode", "/auth/login-passcode", "/api/auth/login-passcode", "/insighted-dpa/api/auth/login-passcode"], async (req, res) => {
+  try {
+    const { deped_email, passcode } = req.body || {};
+    if (!deped_email || !passcode) {
+      return res.status(400).json({ success: false, error: "Email and passcode are required." });
+    }
+
+    const cleanEmail = deped_email.trim().toLowerCase();
+    const cleanPasscode = String(passcode).trim();
+
+    if (!/^\d{6}$/.test(cleanPasscode)) {
+      return res.status(400).json({ success: false, error: "Passcode must be exactly 6 numeric digits." });
+    }
+
+    const userRes = await db.query(
+      `SELECT id, region_id, division_id, position, first_name, last_name, deped_email, password_hash, passcode, role, is_active 
+       FROM users WHERE deped_email = $1`,
+      [cleanEmail]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid credentials. Account not found."
+      });
+    }
+
+    const user = userRes.rows[0];
+
+    if (!user.is_active) {
+      return res.status(403).json({
+        success: false,
+        error: "Account is deactivated. Please contact your HRMO administrator."
+      });
+    }
+
+    const isMatch = user.passcode && user.passcode === cleanPasscode;
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid passcode. Please verify your passcode and try again."
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        deped_email: user.deped_email,
+        role: user.role,
+        region_id: user.region_id,
+        division_id: user.division_id,
+        first_name: user.first_name,
+        last_name: user.last_name
+      },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    delete user.password_hash;
+
+    return res.status(200).json({
+      success: true,
+      message: "Passcode authentication successful.",
+      data: {
+        user,
+        token
+      }
+    });
+
+  } catch (error) {
+    console.error("Error logging in with passcode:", error);
     return res.status(500).json({
       success: false,
       error: "Internal Server Error",

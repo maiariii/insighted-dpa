@@ -5,10 +5,11 @@ import { REASONS_FOR_VACANCY, STATUSES_OF_VACANCY } from '../utils/config';
 
 export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFieldChange, onStatusChange }) => {
   const [formData, setFormData] = useState({});
+  const recId = record ? (record.id || record['ITEM NUMBER'] || record.item_number || '') : '';
 
   useEffect(() => {
     if (record && isOpen) {
-      const rowEdits = stagedEdits[record.id] || {};
+      const rowEdits = stagedEdits[recId] || {};
       const resolveValue = (field, aliasKey) => {
         if (rowEdits[field] !== undefined) return rowEdits[field];
         if (record[field] !== undefined && record[field] !== null) return record[field];
@@ -31,7 +32,7 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
         other_remarks: remarksParsed.text || ''
       });
     }
-  }, [record, isOpen, stagedEdits]);
+  }, [record, isOpen, stagedEdits, recId]);
 
   if (!isOpen || !record) return null;
 
@@ -40,7 +41,7 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
   const handlePosStatusChange = (newStatus) => {
     setFormData(prev => ({ ...prev, position_status: newStatus }));
     if (onStatusChange) {
-      onStatusChange(record.id, newStatus);
+      onStatusChange(recId, newStatus);
     }
   };
 
@@ -51,16 +52,16 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onFieldChange(record.id, 'position_status', formData.position_status);
+    onFieldChange(recId, 'position_status', formData.position_status);
 
     if (isFilled) {
-      onFieldChange(record.id, 'name_of_incumbent', formData.name_of_incumbent);
-      onFieldChange(record.id, 'first_day_of_service', formData.first_day_of_service);
+      onFieldChange(recId, 'name_of_incumbent', formData.name_of_incumbent);
+      onFieldChange(recId, 'first_day_of_service', formData.first_day_of_service);
     } else {
-      onFieldChange(record.id, 'date_of_vacancy', formData.date_of_vacancy);
-      onFieldChange(record.id, 'reason_for_vacancy', formData.reason_for_vacancy);
-      onFieldChange(record.id, 'status_of_vacancy', formData.status_of_vacancy);
-      onFieldChange(record.id, 'tentative_date_to_fill_up', formData.tentative_date_to_fill_up);
+      onFieldChange(recId, 'date_of_vacancy', formData.date_of_vacancy);
+      onFieldChange(recId, 'reason_for_vacancy', formData.reason_for_vacancy);
+      onFieldChange(recId, 'status_of_vacancy', formData.status_of_vacancy);
+      onFieldChange(recId, 'tentative_date_to_fill_up', formData.tentative_date_to_fill_up);
     }
 
     if (formData.other_remarks) {
@@ -69,7 +70,7 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
         updatedBy: 'HRMO User',
         updatedAt: new Date().toISOString()
       });
-      onFieldChange(record.id, 'other_remarks', payload);
+      onFieldChange(recId, 'other_remarks', payload);
     }
 
     onClose();
@@ -137,12 +138,28 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
               Position Status <span className="text-red-500">*</span>
             </label>
             <select
-              className={`w-full px-3.5 py-2.5 rounded-xl border font-bold text-sm shadow-sm cursor-pointer ${isFilled ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-100 text-red-800 border-red-300'}`}
+              className={`w-full px-3.5 py-2.5 rounded-xl border font-bold text-sm shadow-sm cursor-pointer ${
+                isFilled
+                  ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950/70 dark:text-green-300 dark:border-green-700'
+                  : 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/70 dark:text-red-300 dark:border-red-700'
+              }`}
               value={formData.position_status}
               onChange={(e) => handlePosStatusChange(e.target.value)}
             >
-              <option value="UNFILLED">UNFILLED</option>
-              <option value="FILLED">FILLED</option>
+              <option
+                value="UNFILLED"
+                className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-bold"
+                style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}
+              >
+                UNFILLED
+              </option>
+              <option
+                value="FILLED"
+                className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 font-bold"
+                style={{ backgroundColor: '#dcfce7', color: '#166534' }}
+              >
+                FILLED
+              </option>
             </select>
           </div>
 

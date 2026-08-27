@@ -6,7 +6,7 @@ export const API = {
   },
 
   async request(endpoint, options = {}) {
-    const isAuthRoute = endpoint.startsWith('/auth/login') || endpoint.startsWith('/auth/register') || endpoint.startsWith('/auth/regions-divisions');
+    const isAuthRoute = endpoint.startsWith('/auth/login') || endpoint.startsWith('/auth/register') || endpoint.startsWith('/auth/regions-divisions') || endpoint.startsWith('/auth/request-passcode') || endpoint.startsWith('/auth/login-passcode');
     const token = this.getToken();
     const headers = {
       'Content-Type': 'application/json',
@@ -18,6 +18,14 @@ export const API = {
     }
 
     const url = endpoint.startsWith('/') ? `${CONFIG.API_BASE}${endpoint}` : `${CONFIG.API_BASE}/${endpoint}`;
+
+    try {
+      if (options.method && options.method !== 'GET') {
+        console.log(`[API Request] ${options.method} ${url}`, options.body ? JSON.parse(options.body) : '');
+      }
+    } catch {
+      console.log(`[API Request] ${options.method || 'GET'} ${url}`);
+    }
 
     const response = await fetch(url, {
       ...options,
@@ -31,11 +39,20 @@ export const API = {
       data = {};
     }
 
+    if (!response.ok) {
+      const errorMsg = data.errors 
+        ? (Array.isArray(data.errors) ? data.errors.join('. ') : Object.values(data.errors).flat().join('. '))
+        : (data.error || data.message || `HTTP ${response.status}: Request failed.`);
+      console.error(`[API Error] HTTP ${response.status} ${url}:`, errorMsg, data);
+    } else if (options.method && options.method !== 'GET') {
+      console.log(`[API Response] HTTP ${response.status} ${url}:`, data);
+    }
+
     if (response.status === 401) {
       if (isAuthRoute) {
         const errorMsg = data.errors 
           ? (Array.isArray(data.errors) ? data.errors.join('. ') : Object.values(data.errors).flat().join('. '))
-          : (data.error || data.message || 'Invalid email or password.');
+          : (data.error || data.message || 'Invalid email or credentials.');
         throw new Error(errorMsg);
       }
 
@@ -61,6 +78,20 @@ export const API = {
       return API.request('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ deped_email, password })
+      });
+    },
+
+    async requestPasscode(deped_email) {
+      return API.request('/auth/request-passcode', {
+        method: 'POST',
+        body: JSON.stringify({ deped_email })
+      });
+    },
+
+    async loginPasscode(deped_email, passcode) {
+      return API.request('/auth/login-passcode', {
+        method: 'POST',
+        body: JSON.stringify({ deped_email, passcode })
       });
     },
 
@@ -114,6 +145,13 @@ export const API = {
     async createIntervention(payload) {
       return API.request('/personnel-audit/interventions', {
         method: 'POST',
+        body: JSON.stringify(payload)
+      });
+    },
+
+    async updateIntervention(id, payload) {
+      return API.request(`/personnel-audit/interventions/${id}`, {
+        method: 'PUT',
         body: JSON.stringify(payload)
       });
     },
