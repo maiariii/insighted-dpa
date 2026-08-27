@@ -10,7 +10,7 @@ module.exports = {
       max_memory_restart: "600M",
       env: {
         NODE_ENV: "production",
-        PORT: 5040
+        PORT: 5080
       },
       error_file: "/mnt/insighted-dpa/logs/err.log",
       out_file: "/mnt/insighted-dpa/logs/out.log",

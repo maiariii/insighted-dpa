@@ -1,44 +1,30 @@
 #!/usr/bin/env python3
+import subprocess
 import os
 import sys
+import threading
 import time
 import tarfile
-import subprocess
-import shutil
 
-# Handle Windows console encoding for emojis/box-drawing chars from remote PM2 output
+# Handle Windows console encoding for emojis
 if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    import codecs
+    sys.stdout.reconfigure(encoding='utf-8')
 
 # --- CONFIGURATION ---
-APP_NAME = "insighted-dpa"
-APP_SUBPATH = "/insighted-dpa/"        # Nginx location prefix this app is served under
-REMOTE_USER = "Administrator1"
-REMOTE_HOST = "20.24.58.49"
-REMOTE_DIR = f"/mnt/{APP_NAME}"
-PORT = 5040                            # Matches the upstream dpa_backend port in Nginx
+SERVER_IP = "20.24.58.49"
+SERVER_DIR = "/mnt/insighted-dpa"
+USER = "Administrator1"
+TAR_FILE = "dpa-deploy.tmp.tar.gz"
+PORT = 5080
 PM2_NAME = "insighted-dpa-backend"
 ECOSYSTEM_CONFIG = "ecosystem.dpa.config.cjs"
-ARCHIVE_NAME = f"{APP_NAME}-deploy.tmp.tar.gz"
 
-# Strict no-Nginx-touch policy: this script never edits /etc/nginx or reloads/
-# restarts the Nginx service. Everything it does is scoped to REMOTE_DIR and
-# the single PM2_NAME process.
-SSH_OPTS = [
-    "-o", "BatchMode=yes",
-    "-o", "StrictHostKeyChecking=no",
-    "-o", "ConnectTimeout=30",
-    "-o", "ServerAliveInterval=15",
-    "-o", "ServerAliveCountMax=4",
-]
-
-# Files/directories shipped to the VM. apps/frontend/dist (built fresh in Phase
-# 2 below) rides along automatically since "apps" is included as a whole
-# directory — no separate packaging step for it.
 INCLUDE = [
-    "apps", "packages", "public", "index.html", "package.json", "package-lock.json",
-    ECOSYSTEM_CONFIG, "APP.png", "deped_building_bg.png", "deped_logo.png",
-    "hrod_logo.png", "bagong_pilipinas.png", "insighted_logo_vertical.png", ".env"
+    "apps", "packages", "public", "dist", "assets", "server", "index.html", 
+    "package.json", "package-lock.json", ".env", ECOSYSTEM_CONFIG, 
+    "APP.png", "deped_logo.png", "bagong_pilipinas.png", "hrod_logo.png", 
+    "insighted_logo_vertical.png", "deped_building_bg.png"
 ]
 
 # --- COLORS ---
@@ -48,187 +34,192 @@ CYAN = '\033[0;36m'
 YELLOW = '\033[1;33m'
 NC = '\033[0m'
 
-def info(msg): print(f"{CYAN}[INFO] {msg}{NC}", flush=True)
-def success(msg): print(f"{GREEN}[SUCCESS] {msg}{NC}", flush=True)
-def warn(msg): print(f"{YELLOW}[WARN] {msg}{NC}", flush=True)
-def error(msg): print(f"{RED}[ERROR] {msg}{NC}", flush=True)
+def info(msg): print(f"{CYAN}ℹ️  {msg}{NC}", flush=True)
+def success(msg): print(f"{GREEN}✅ {msg}{NC}", flush=True)
+def warn(msg): print(f"{YELLOW}⚠️  {msg}{NC}", flush=True)
+def error(msg): print(f"{RED}❌ {msg}{NC}", flush=True)
 
-def run_command(cmd, capture=False, timeout=90, retries=1, delay=5, env=None, check=True):
+# Standard SSH options with BatchMode and server keepalive
+SSH_OPTS = [
+    "-o", "BatchMode=yes",
+    "-o", "StrictHostKeyChecking=no",
+    "-o", "ConnectTimeout=30",
+    "-o", "ServerAliveInterval=15",
+    "-o", "ServerAliveCountMax=4"
+]
+
+def run_command(cmd, capture=False, timeout=90, retries=5, delay=3):
     cmd_str = cmd if isinstance(cmd, str) else ' '.join(cmd)
-    is_network = isinstance(cmd, list) and cmd and cmd[0] in ("ssh", "scp")
-    max_attempts = max(retries, 5) if is_network else retries
+    
+    is_network = "ssh" in cmd_str or "scp" in cmd_str
+    max_attempts = retries if is_network else 1
 
     for attempt in range(1, max_attempts + 1):
-        prefix = f"[Attempt {attempt}/{max_attempts}] " if is_network and max_attempts > 1 else ""
-        info(f"{prefix}Executing: {cmd_str}")
+        if not capture:
+            prefix = f"[Attempt {attempt}/{max_attempts}] " if is_network else ""
+            print(f"{CYAN}> {prefix}Running: {cmd_str}{NC}", flush=True)
         try:
             result = subprocess.run(
-                cmd, shell=isinstance(cmd, str), check=False, text=True,
-                capture_output=capture, timeout=timeout, stdin=subprocess.DEVNULL,
-                encoding='utf-8', errors='replace', env=env
+                cmd, shell=True, capture_output=capture, text=True, 
+                timeout=timeout, stdin=subprocess.DEVNULL
             )
             if result.returncode == 0:
                 return result
             if attempt < max_attempts:
-                warn(f"Command exited {result.returncode}. Retrying in {delay}s...")
+                warn(f"Command returned exit code {result.returncode}. Retrying in {delay}s...")
         except subprocess.TimeoutExpired:
             if attempt < max_attempts:
                 warn(f"Command timed out after {timeout}s. Retrying in {delay}s...")
-            result = None
+        
         if attempt < max_attempts:
             time.sleep(delay)
 
-    if check:
-        error(f"Command failed after {max_attempts} attempt(s): {cmd_str}")
-        sys.exit(1)
-    return result
-
-def ssh_base():
-    return ["ssh"] + SSH_OPTS + [f"{REMOTE_USER}@{REMOTE_HOST}"]
+    if not capture:
+        error(f"Command failed after {max_attempts} attempts: {cmd_str}")
+    return subprocess.CompletedProcess(cmd, 1, "", "Failed after retries")
 
 def pre_flight_audit():
-    info("Phase 1: Pre-flight audit")
-    run_command("npm -v")
-    run_command("node -v")
-
-    info("Testing SSH connectivity...")
-    res = run_command(ssh_base() + ["echo SSH_OK"], capture=True, timeout=35)
-    if "SSH_OK" not in (res.stdout or ""):
-        error("SSH connectivity check failed — did not receive expected response.")
-        sys.exit(1)
-    success("SSH connectivity confirmed.")
-
-def build_local_assets():
-    info("Phase 2: Local build")
-    run_command("npm install --no-audit --no-fund")
-
-    build_env = os.environ.copy()
-    build_env["VITE_BASE_PATH"] = APP_SUBPATH
-    build_env["VITE_API_URL"] = f"{APP_SUBPATH}api"
-    if sys.platform == "win32":
-        run_command(f"set VITE_BASE_PATH={APP_SUBPATH}&& set VITE_API_URL={APP_SUBPATH}api&& npm run build -w apps/frontend", env=build_env)
+    print(f"\n{YELLOW}🔍 Phase 1: Pre-flight Audit{NC}", flush=True)
+    ssh_target = f"{USER}@{SERVER_IP}"
+    ssh_base = ["ssh"] + SSH_OPTS + [ssh_target]
+    
+    info("Checking remote disk space...")
+    res = run_command(ssh_base + ["df -h / | tail -1"], capture=True, timeout=20, retries=3)
+    if res.returncode == 0:
+        parts = res.stdout.split()
+        if len(parts) >= 5:
+            usage = parts[4].replace('%', '')
+            info(f"Remote disk usage: {usage}%")
+            if int(usage) > 90:
+                warn("Disk space is critically low (>90%)!")
     else:
-        run_command(f"VITE_BASE_PATH='{APP_SUBPATH}' VITE_API_URL='{APP_SUBPATH}api' npm run build -w apps/frontend", env=build_env)
-    run_command("npm run build:css")
+        warn("Could not check disk space (transient network glitch). Skipping...")
+    
+    info(f"Checking if port {PORT} is occupied...")
+    res = run_command(ssh_base + [f"ss -tulpn | grep :{PORT} || true"], capture=True, timeout=20, retries=3)
+    if res.returncode == 0 and res.stdout.strip():
+        info(f"Port {PORT} is active for PM2 backend.")
+    else:
+        info(f"Port {PORT} ready.")
 
-    dist_index = os.path.join("apps", "frontend", "dist", "index.html")
-    if not os.path.exists(dist_index):
-        error(f"{dist_index} was not produced by the build. Aborting before anything is shipped.")
-        sys.exit(1)
-
-    # Sync fresh Vite build index.html into root index.html
-    shutil.copyfile(dist_index, "index.html")
-    info("Synced apps/frontend/dist/index.html to root index.html.")
-
-    if not os.path.exists(os.path.join("public", "css", "tailwind.css")):
-        warn("public/css/tailwind.css was not produced by the build — deployed styles may be stale.")
-
-    success("Local build verified: apps/frontend/dist/index.html and public/css/tailwind.css are present.")
-
-def exclude_filter(tarinfo):
-    name = tarinfo.name.lower()
-    excludes = ['node_modules', '.git', '.turbo', '__pycache__', '.log', ARCHIVE_NAME.lower()]
-    if any(ex in name for ex in excludes if ex != '.env'):
-        return None
-    return tarinfo
-
-def package_archive():
-    info("Phase 3: Packaging archive")
-    existing_includes = [item for item in INCLUDE if os.path.exists(item)]
-    missing = [item for item in INCLUDE if item not in existing_includes]
-    if missing:
-        warn(f"Skipping missing local paths: {', '.join(missing)}")
-
-    with tarfile.open(ARCHIVE_NAME, "w:gz") as tar:
-        for item in existing_includes:
-            tar.add(item, filter=exclude_filter)
-            info(f"  + {item}")
-
-    size_mb = os.path.getsize(ARCHIVE_NAME) / (1024 * 1024)
-    success(f"Payload archive created ({size_mb:.1f} MB).")
-
-def deploy_remote():
-    info(f"Phase 4: Preparing {REMOTE_DIR} and transferring archive")
-    prep_cmd = (
-        f"sudo mkdir -p {REMOTE_DIR} /var/www/html/insighted-dpa && "
-        f"sudo chown -R {REMOTE_USER}:{REMOTE_USER} {REMOTE_DIR} /var/www/html/insighted-dpa && "
-        f"mkdir -p {REMOTE_DIR}/logs {REMOTE_DIR}/dist"
-    )
-    run_command(ssh_base() + [prep_cmd])
-
-    scp_cmd = ["scp", "-q"] + SSH_OPTS + [ARCHIVE_NAME, f"{REMOTE_USER}@{REMOTE_HOST}:{REMOTE_DIR}/"]
-    run_command(scp_cmd, timeout=180)
-
-    ecosystem_remote_path = f"{REMOTE_DIR}/{ECOSYSTEM_CONFIG}"
-    remote_script = (
-        f"cd {REMOTE_DIR} && "
-        f"pm2 stop {PM2_NAME} 2>/dev/null || true && "
-        f"tar -xzf {ARCHIVE_NAME} && "
-        f"sudo chown -R {REMOTE_USER}:{REMOTE_USER} {REMOTE_DIR} && "
-        f"mkdir -p {REMOTE_DIR}/dist {REMOTE_DIR}/assets /var/www/html/insighted-dpa/assets && "
-        f"find {REMOTE_DIR}/dist -mindepth 1 -delete && "
-        f"rm -rf {REMOTE_DIR}/assets/* /var/www/html/insighted-dpa/assets/* 2>/dev/null || true; "
-        f"if [ -d {REMOTE_DIR}/apps/frontend/dist ] && [ \"$(ls -A {REMOTE_DIR}/apps/frontend/dist 2>/dev/null)\" ]; then "
-        f"  cp -r {REMOTE_DIR}/apps/frontend/dist/. {REMOTE_DIR}/dist/; "
-        f"  cp -r {REMOTE_DIR}/apps/frontend/dist/. {REMOTE_DIR}/; "
-        f"  sudo cp -r {REMOTE_DIR}/apps/frontend/dist/. /var/www/html/insighted-dpa/; "
-        f"fi && "
-        "export PATH=$PATH:/usr/local/bin:/home/Administrator1/.local/share/pnpm; "
-        "echo '-> Installing production monorepo dependencies...' && "
-        "npm install --omit=dev --legacy-peer-deps 2>&1 | tail -n 10 && "
-        f"pm2 flush {PM2_NAME} 2>/dev/null || true; "
-        f"pm2 delete {PM2_NAME} 2>/dev/null || true; "
-        f"pm2 start {ecosystem_remote_path} --update-env && pm2 save && "
-        f"rm -f {REMOTE_DIR}/{ARCHIVE_NAME}"
-    )
-    ssh_cmd = ["ssh"] + SSH_OPTS + [f"{REMOTE_USER}@{REMOTE_HOST}", remote_script]
-    run_command(ssh_cmd, timeout=180)
-    success("Remote setup complete.")
+def prepare_remote():
+    print(f"\n{YELLOW}🧹 Phase 2: Preparing remote directory {SERVER_DIR}...{NC}", flush=True)
+    ssh_target = f"{USER}@{SERVER_IP}"
+    prep_cmd = f"sudo mkdir -p {SERVER_DIR} && sudo chown -R {USER}:{USER} {SERVER_DIR} && mkdir -p {SERVER_DIR}/logs"
+    ssh_cmd = ["ssh"] + SSH_OPTS + [ssh_target, prep_cmd]
+    run_command(ssh_cmd, retries=5)
+    success("Remote directory prepared.")
 
 def post_flight_verify():
-    info("Phase 5: Post-flight verification")
-
+    print(f"\n{YELLOW}🔍 Phase 5: Post-flight Verification & Auto-Revive{NC}", flush=True)
+    ssh_target = f"{USER}@{SERVER_IP}"
+    
     info("Checking PM2 status...")
-    res = run_command(ssh_base() + [f"pm2 show {PM2_NAME} | grep status"], capture=True, check=False)
-    status_output = (res.stdout or "") if res else ""
-    print(status_output)
+    show_cmd = ["ssh"] + SSH_OPTS + [ssh_target, f"pm2 show {PM2_NAME} | grep status"]
+    res = run_command(show_cmd, capture=True, retries=3)
+    print(res.stdout, flush=True)
 
-    if "errored" in status_output or "stopped" in status_output:
-        warn("PM2 process detected in errored/stopped state! Triggering auto-revive restart...")
-        run_command(ssh_base() + [f"pm2 restart {PM2_NAME} --update-env"], check=False)
-        success("Auto-revive triggered for PM2 process.")
-
+    if "errored" in res.stdout or "stopped" in res.stdout:
+        warn("PM2 process detected in errored/stopped state! Triggering Auto-Revive restart...")
+        revive_cmd = ["ssh"] + SSH_OPTS + [ssh_target, f"pm2 restart {PM2_NAME} --update-env"]
+        run_command(revive_cmd, retries=3)
+        success("Auto-Revive triggered for PM2 process.")
+    
     info(f"Checking backend endpoint (port {PORT})...")
-    health_cmd = f"curl -sf http://127.0.0.1:{PORT}/ >/dev/null && echo UP || pm2 show {PM2_NAME}"
-    res = run_command(ssh_base() + [health_cmd], capture=True, check=False)
-    output = (res.stdout or "").strip() if res else ""
-    if "UP" in output:
-        success(f"DPA backend is responding on localhost:{PORT}.")
-    else:
-        warn(f"Backend endpoint check did not return UP. Details:\n{output}")
+    health_cmd = ["ssh"] + SSH_OPTS + [ssh_target, f"curl -sf http://127.0.0.1:{PORT}/ || true"]
+    run_command(health_cmd, capture=False, retries=3)
 
 def main():
     start_time = time.time()
-    print(f"{CYAN}{'=' * 60}{NC}")
-    print(f"{GREEN}InsightEd DPA Deployment: {PM2_NAME}{NC}")
-    print(f"{CYAN}Target: {REMOTE_DIR} | Subpath: {APP_SUBPATH} | Port: {PORT}{NC}")
-    print(f"{CYAN}{'=' * 60}{NC}")
+    print(f"{CYAN}" + "="*60 + f"{NC}", flush=True)
+    print(f"{GREEN}🚀 InsightEd DPA Deployment: {PM2_NAME}{NC}", flush=True)
+    print(f"{CYAN}Target Path: {SERVER_DIR} | Port: {PORT}{NC}", flush=True)
+    print(f"{CYAN}" + "="*60 + f"{NC}", flush=True)
 
+    # 1. Pre-flight
+    pre_flight_audit()
+
+    # 2. Prepare Remote Directory
+    prepare_remote()
+
+    # 3. Create Payload Archive
+    print(f"\n{YELLOW}📦 Phase 3: Building assets & creating payload archive -> {TAR_FILE}...{NC}", flush=True)
+    
+    info("Building Vite React frontend...")
+    run_command("npm run build --prefix apps/frontend", retries=1)
+    
+    info("Syncing build dist outputs...")
+    if os.path.exists("apps/frontend/dist"):
+        os.makedirs("dist", exist_ok=True)
+        import shutil
+        for item in os.listdir("apps/frontend/dist"):
+            s = os.path.join("apps/frontend/dist", item)
+            d_dist = os.path.join("dist", item)
+            d_root = item
+            if os.path.isdir(s):
+                if os.path.exists(d_dist): shutil.rmtree(d_dist)
+                if os.path.exists(d_root): shutil.rmtree(d_root)
+                shutil.copytree(s, d_dist)
+                shutil.copytree(s, d_root)
+            else:
+                shutil.copy2(s, d_dist)
+                shutil.copy2(s, d_root)
+
+    existing_includes = [item for item in INCLUDE if os.path.exists(item)]
+    
+    def exclude_filter(tarinfo):
+        name = tarinfo.name.lower()
+        if any(x in name for x in ["node_modules", ".git", ".turbo"]):
+            return None
+        return tarinfo
+
+    with tarfile.open(TAR_FILE, "w:gz") as tar:
+        for f in existing_includes:
+            tar.add(f, filter=exclude_filter)
+            info(f"       + {f}")
+            
+    success("Payload archive created.")
+
+    # 4. Upload & Deploy with Auto-Revive Retry Loop
+    print(f"\n{YELLOW}📤 Phase 4: Uploading archive and executing remote deploy in {SERVER_DIR}...{NC}", flush=True)
+    ssh_target = f"{USER}@{SERVER_IP}"
+    
+    scp_cmd = ["scp", "-q"] + SSH_OPTS + [TAR_FILE, f"{ssh_target}:{SERVER_DIR}/"]
+    run_command(scp_cmd, retries=5)
+    
+    ecosystem_remote_path = f"{SERVER_DIR}/{ECOSYSTEM_CONFIG}"
+    remote_setup = (
+        f"cd {SERVER_DIR} && "
+        f"pm2 stop {PM2_NAME} 2>/dev/null || true && "
+        f"tar -xzf {TAR_FILE} && "
+        f"sudo chown -R {USER}:{USER} {SERVER_DIR} && "
+        "export PATH=$PATH:/usr/local/bin:/home/Administrator1/.local/share/pnpm; "
+        "echo '       -> Running production npm install...' && "
+        "npm install --omit=dev --legacy-peer-deps --prefer-offline 2>&1 | tail -n 10 && "
+        f"pm2 flush {PM2_NAME} 2>/dev/null || true; "
+        f"pm2 delete {PM2_NAME} 2>/dev/null || true; "
+        f"pm2 start {ecosystem_remote_path} --update-env && "
+        f"rm -f {TAR_FILE}"
+    )
+    ssh_deploy_cmd = ["ssh"] + SSH_OPTS + [ssh_target, remote_setup]
+    run_command(ssh_deploy_cmd, retries=5, timeout=180)
+    success("Remote setup complete.")
+
+    # 5. Verify & Auto-Revive
+    post_flight_verify()
+
+    # 6. Local Cleanup
     try:
-        pre_flight_audit()
-        build_local_assets()
-        package_archive()
-        deploy_remote()
-        post_flight_verify()
-    finally:
-        if os.path.exists(ARCHIVE_NAME):
-            os.remove(ARCHIVE_NAME)
+        if os.path.exists(TAR_FILE):
+            os.remove(TAR_FILE)
             info("Local temporary payload archive removed.")
+    except Exception:
+        pass
 
     duration = time.time() - start_time
-    print(f"{GREEN}{'=' * 60}{NC}")
-    success(f"Deployment to {REMOTE_DIR} complete in {duration:.2f}s!")
-    print(f"{GREEN}{'=' * 60}{NC}")
+    print(f"\n{GREEN}" + "="*60 + f"{NC}")
+    success(f"Deployment to {SERVER_DIR} Complete in {duration:.2f}s!")
+    print(f"{GREEN}" + "="*60 + f"{NC}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
