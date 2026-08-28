@@ -66,6 +66,19 @@ export const STATUSES_OF_VACANCY = [
   "Waiving of Items Under Special Hiring Arrangements - SPIMS beneficiaries"
 ];
 
+// Statuses where the vacancy is not expected to be filled on a timeline, so
+// "Tentative Date to Fill-Up" is locked to N/A instead of a user-picked date.
+export const NA_TENTATIVE_DATE_STATUSES = [
+  "CTI Item - Request for Abolition"
+];
+
+// Statuses where "Tentative Date to Fill-Up" stays user-editable but is not
+// required — the record can still be saved as Draft with it left blank.
+export const OPTIONAL_TENTATIVE_DATE_STATUSES = [
+  "Position is not consistent in the ECP",
+  "Hard to Fill Position - Guidance Counselor items"
+];
+
 export const editableSelects = {
   "POSITION STATUS": ["", "FILLED", "UNFILLED"],
   "REASON FOR VACANCY": ["", ...REASONS_FOR_VACANCY],

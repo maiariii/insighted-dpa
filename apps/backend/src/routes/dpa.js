@@ -6,6 +6,19 @@ import { InterventionCreateSchema } from "@project/shared";
 
 const router = express.Router();
 
+// Statuses where the vacancy is not expected to be filled on a timeline, so
+// tentative_date_to_fill_up is stored as NULL rather than a real date.
+const NA_TENTATIVE_DATE_STATUSES = [
+  "CTI Item - Request for Abolition"
+];
+
+// Statuses where tentative_date_to_fill_up stays a real date field but is
+// optional — a NULL/blank value here does not block "Draft" completion.
+const OPTIONAL_TENTATIVE_DATE_STATUSES = [
+  "Position is not consistent in the ECP",
+  "Hard to Fill Position - Guidance Counselor items"
+];
+
 function normalizeFilterParam(val) {
   if (!val || typeof val !== "string") return null;
   const trimmed = val.trim();
@@ -324,11 +337,14 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         "is_audited"
       ];
 
+      const dateFields = new Set(["first_day_of_service", "date_of_vacancy", "tentative_date_to_fill_up"]);
+
       const cleanPayload = {};
       for (const field of allowedFields) {
         if (payload[field] !== undefined) {
           const val = payload[field];
-          if (val === "" || val === undefined) {
+          const isNaPlaceholder = typeof val === "string" && val.trim().toUpperCase() === "N/A";
+          if (val === "" || val === undefined || (dateFields.has(field) && isNaPlaceholder)) {
             cleanPayload[field] = null;
           } else {
             cleanPayload[field] = val;
@@ -346,8 +362,10 @@ router.put(["/:id", "/personnel-audit/:id", "/api/personnel-audit/:id"], verifyT
         const effectiveReason = cleanPayload.reason_for_vacancy !== undefined ? cleanPayload.reason_for_vacancy : existingRec.reason_for_vacancy;
         const effectiveStatus = cleanPayload.status_of_vacancy !== undefined ? cleanPayload.status_of_vacancy : existingRec.status_of_vacancy;
         const effectiveTentative = cleanPayload.tentative_date_to_fill_up !== undefined ? cleanPayload.tentative_date_to_fill_up : existingRec.tentative_date_to_fill_up;
+        const effectiveStatusTrimmed = String(effectiveStatus || "").trim();
+        const tentativeNotRequired = NA_TENTATIVE_DATE_STATUSES.includes(effectiveStatusTrimmed) || OPTIONAL_TENTATIVE_DATE_STATUSES.includes(effectiveStatusTrimmed);
 
-        const isAuditedCalculated = !!(effectiveReason && String(effectiveReason).trim() && effectiveStatus && String(effectiveStatus).trim() && effectiveTentative && String(effectiveTentative).trim());
+        const isAuditedCalculated = !!(effectiveReason && String(effectiveReason).trim() && effectiveStatus && String(effectiveStatus).trim() && (tentativeNotRequired || (effectiveTentative && String(effectiveTentative).trim())));
         const isAlreadyAudited = existingRec.is_audited === true || String(existingRec.item_status).toLowerCase() === 'audited';
         cleanPayload.is_audited = payload.is_audited !== undefined ? payload.is_audited : (isAuditedCalculated || isAlreadyAudited);
       } else if (effectivePosStatus === "FILLED") {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FlatpickrInput } from './FlatpickrInput';
 import { parseRemarksValue } from './RemarksModal';
-import { REASONS_FOR_VACANCY, STATUSES_OF_VACANCY } from '../utils/config';
+import { REASONS_FOR_VACANCY, STATUSES_OF_VACANCY, NA_TENTATIVE_DATE_STATUSES } from '../utils/config';
 
 export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFieldChange, onStatusChange }) => {
   const [formData, setFormData] = useState({});
@@ -20,6 +20,8 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
       const posStatus = resolveValue('position_status', 'POSITION STATUS') || record.item_status || 'UNFILLED';
       const remarksRaw = resolveValue('other_remarks', 'OTHER REMARKS');
       const remarksParsed = parseRemarksValue(remarksRaw);
+      const statusOfVacancy = resolveValue('status_of_vacancy', 'STATUS OF VACANCY');
+      const tentativeDate = resolveValue('tentative_date_to_fill_up', 'TENTATIVE DATE TO FILL-UP');
 
       setFormData({
         position_status: posStatus,
@@ -27,8 +29,8 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
         first_day_of_service: resolveValue('first_day_of_service', 'FIRST DAY OF SERVICE'),
         date_of_vacancy: resolveValue('date_of_vacancy', 'DATE OF VACANCY'),
         reason_for_vacancy: resolveValue('reason_for_vacancy', 'REASON FOR VACANCY'),
-        status_of_vacancy: resolveValue('status_of_vacancy', 'STATUS OF VACANCY'),
-        tentative_date_to_fill_up: resolveValue('tentative_date_to_fill_up', 'TENTATIVE DATE TO FILL-UP'),
+        status_of_vacancy: statusOfVacancy,
+        tentative_date_to_fill_up: NA_TENTATIVE_DATE_STATUSES.includes(statusOfVacancy) ? 'N/A' : tentativeDate,
         other_remarks: remarksParsed.text || ''
       });
     }
@@ -47,6 +49,19 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
 
   const handleInputChange = (field, val) => {
     const cleanVal = field === 'name_of_incumbent' && typeof val === 'string' ? val.toUpperCase() : val;
+
+    if (field === 'status_of_vacancy') {
+      const isNaStatus = NA_TENTATIVE_DATE_STATUSES.includes(cleanVal);
+      setFormData(prev => ({
+        ...prev,
+        status_of_vacancy: cleanVal,
+        tentative_date_to_fill_up: isNaStatus
+          ? 'N/A'
+          : (prev.tentative_date_to_fill_up === 'N/A' ? '' : prev.tentative_date_to_fill_up)
+      }));
+      return;
+    }
+
     setFormData(prev => ({ ...prev, [field]: cleanVal }));
   };
 
@@ -240,6 +255,7 @@ export const RowEditModal = ({ isOpen, onClose, record, stagedEdits = {}, onFiel
                     onChange={(val) => handleInputChange('tentative_date_to_fill_up', val)}
                     minDate="today"
                     allowInput={false}
+                    disabled={NA_TENTATIVE_DATE_STATUSES.includes(formData.status_of_vacancy)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white text-sm"
                   />
                 </div>

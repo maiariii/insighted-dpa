@@ -9,7 +9,7 @@ import { UndoChangesModal } from '../components/UndoChangesModal';
 import { SaveFinalizedEditsModal } from '../components/SaveFinalizedEditsModal';
 import { UnfinalizeConfirmModal } from '../components/UnfinalizeConfirmModal';
 import { FlatpickrInput } from '../components/FlatpickrInput';
-import { REASONS_FOR_VACANCY, STATUSES_OF_VACANCY } from '../utils/config';
+import { REASONS_FOR_VACANCY, STATUSES_OF_VACANCY, NA_TENTATIVE_DATE_STATUSES } from '../utils/config';
 import { useTableSortAndFilter } from '../hooks/useTableSortAndFilter';
 import { checkRecordRequiredFields } from '../utils/recordValidation';
 
@@ -79,37 +79,14 @@ export const AuditDashboard = () => {
     }
   }, [finalizedStagedEdits]);
 
-  // Helper to compute is_audited boolean flag from merged row state
+  // Helper to compute is_audited boolean flag from merged row state.
+  // Delegates to checkRecordRequiredFields so the NA/optional tentative-date
+  // status branching (Abolition/Guidance Counselor/ECP) stays in one place
+  // instead of being duplicated and drifting out of sync here.
   const computeAuditedFlag = (rec, rowEdits) => {
     const isAlreadyAudited = rec ? isRecordCompleted(rec) : false;
-    const posStatus = rowEdits.position_status !== undefined
-      ? rowEdits.position_status
-      : (rec?.position_status || rec?.['POSITION STATUS'] || 'UNFILLED');
-
-    if (posStatus === 'FILLED') {
-      const incumbent = rowEdits.name_of_incumbent !== undefined
-        ? rowEdits.name_of_incumbent
-        : (rec?.name_of_incumbent || rec?.['NAME OF INCUMBENT'] || '');
-      const firstDay = rowEdits.first_day_of_service !== undefined
-        ? rowEdits.first_day_of_service
-        : (rec?.first_day_of_service || rec?.['FIRST DAY OF SERVICE'] || '');
-      return !!(incumbent && String(incumbent).trim() && firstDay && String(firstDay).trim()) || isAlreadyAudited;
-    } else {
-      const dateVacancy = rowEdits.date_of_vacancy !== undefined
-        ? rowEdits.date_of_vacancy
-        : (rec?.date_of_vacancy || rec?.['DATE OF VACANCY'] || '');
-      const reason = rowEdits.reason_for_vacancy !== undefined
-        ? rowEdits.reason_for_vacancy
-        : (rec?.reason_for_vacancy || rec?.['REASON FOR VACANCY'] || '');
-      const status = rowEdits.status_of_vacancy !== undefined
-        ? rowEdits.status_of_vacancy
-        : (rec?.status_of_vacancy || rec?.['STATUS OF VACANCY'] || '');
-      const tentative = rowEdits.tentative_date_to_fill_up !== undefined
-        ? rowEdits.tentative_date_to_fill_up
-        : (rec?.tentative_date_to_fill_up || rec?.['TENTATIVE DATE TO FILL-UP'] || '');
-      const unfilledAudited = !!(dateVacancy && String(dateVacancy).trim() && reason && String(reason).trim() && status && String(status).trim() && tentative && String(tentative).trim());
-      return unfilledAudited || isAlreadyAudited;
-    }
+    const validation = checkRecordRequiredFields(rec || {}, rowEdits);
+    return validation.isDraft || isAlreadyAudited;
   };
 
   // --- MAIN PANEL CHANGE TRACKING HANDLERS ---
@@ -195,6 +172,9 @@ export const AuditDashboard = () => {
       const promises = validDraftEntries.map(({ id, rowEdits }) => {
         const cleanFields = { ...rowEdits };
         delete cleanFields.item_status;
+        if (NA_TENTATIVE_DATE_STATUSES.includes(cleanFields.status_of_vacancy)) {
+          cleanFields.tentative_date_to_fill_up = 'N/A';
+        }
         console.log(`[MainSave] API.dpa.updateRecord call for ID ${id}:`, cleanFields);
         return API.dpa.updateRecord(id, cleanFields);
       });
@@ -276,6 +256,9 @@ export const AuditDashboard = () => {
       const promises = entries.map(([id, fields]) => {
         const cleanFields = { ...fields };
         delete cleanFields.item_status;
+        if (NA_TENTATIVE_DATE_STATUSES.includes(cleanFields.status_of_vacancy)) {
+          cleanFields.tentative_date_to_fill_up = 'N/A';
+        }
         console.log(`[FinalizedSave] API.dpa.updateRecord call for ID ${id}:`, cleanFields);
         return API.dpa.updateRecord(id, cleanFields);
       });
@@ -367,14 +350,17 @@ export const AuditDashboard = () => {
 
   }, [activeRecords, searchQuery, selectedRegionFilter, selectedStatusFilter, activeCategoryFilter]);
 
-  // Submission Status helper for sorting and filtering
+  // Submission Status helper for sorting and filtering.
+  // Evaluated from the merged (persisted + staged) field state rather than
+  // staged-edit dirtiness alone, so a saved-but-not-yet-audited row (e.g. an
+  // optional tentative date left blank) still reports "Draft" instead of
+  // going blank the moment its staged edits are cleared after a save.
   const getSubmissionStatus = useCallback((record) => {
     if (!record) return '';
     const recId = getRecordKey(record);
     const rowEdits = mainStagedEdits[recId] || {};
-    const isDirty = Object.keys(rowEdits).length > 0;
-    if (!isDirty) return '';
     const validation = checkRecordRequiredFields(record, rowEdits);
+    if (validation.isUntouched) return '';
     return validation.isDraft ? 'Draft' : 'Incomplete';
   }, [mainStagedEdits]);
 
@@ -945,7 +931,15 @@ export const AuditDashboard = () => {
                           <select
                             className="form-select border rounded px-2 py-1 text-xs w-full bg-white text-slate-800 border-slate-300"
                             value={statusVacancy}
-                            onChange={(e) => stageMainEdit(recId, 'status_of_vacancy', e.target.value)}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              stageMainEdit(recId, 'status_of_vacancy', newStatus);
+                              if (NA_TENTATIVE_DATE_STATUSES.includes(newStatus)) {
+                                stageMainEdit(recId, 'tentative_date_to_fill_up', 'N/A');
+                              } else if (tentativeFill === 'N/A') {
+                                stageMainEdit(recId, 'tentative_date_to_fill_up', '');
+                              }
+                            }}
                           >
                             <option value="">Select Status</option>
                             {STATUSES_OF_VACANCY.map(s => <option key={s} value={s}>{s}</option>)}
@@ -964,7 +958,7 @@ export const AuditDashboard = () => {
                       </td>
                       <td className="p-2 border-b">
                         <FlatpickrInput
-                          disabled={isFilled}
+                          disabled={isFilled || NA_TENTATIVE_DATE_STATUSES.includes(statusVacancy)}
                           value={tentativeFill}
                           onChange={(val) => stageMainEdit(recId, 'tentative_date_to_fill_up', val)}
                           minDate="today"
@@ -972,8 +966,9 @@ export const AuditDashboard = () => {
                         />
                       </td>
                       <td className="p-3 border-b text-right whitespace-nowrap">
-                        {isDirty && (() => {
+                        {(() => {
                           const validation = checkRecordRequiredFields(record, rowEdits);
+                          if (validation.isUntouched) return null;
                           return validation.isDraft ? (
                             <span className="px-2 py-0.5 text-xs font-bold bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300 rounded border border-teal-300 dark:border-teal-700/60 shadow-xs" title="Draft record ready for saving">
                               Draft
@@ -1472,7 +1467,15 @@ export const AuditDashboard = () => {
                           <select
                             className="form-select border rounded px-2 py-1 text-xs w-full bg-white text-slate-800 border-slate-300"
                             value={statusVacancy}
-                            onChange={(e) => stageFinalizedEdit(recId, 'status_of_vacancy', e.target.value)}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              stageFinalizedEdit(recId, 'status_of_vacancy', newStatus);
+                              if (NA_TENTATIVE_DATE_STATUSES.includes(newStatus)) {
+                                stageFinalizedEdit(recId, 'tentative_date_to_fill_up', 'N/A');
+                              } else if (tentativeFill === 'N/A') {
+                                stageFinalizedEdit(recId, 'tentative_date_to_fill_up', '');
+                              }
+                            }}
                           >
                             <option value="">Select Status</option>
                             {STATUSES_OF_VACANCY.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1491,7 +1494,7 @@ export const AuditDashboard = () => {
                       </td>
                       <td className="p-2 border-b">
                         <FlatpickrInput
-                          disabled={isFilled}
+                          disabled={isFilled || NA_TENTATIVE_DATE_STATUSES.includes(statusVacancy)}
                           value={tentativeFill}
                           onChange={(val) => stageFinalizedEdit(recId, 'tentative_date_to_fill_up', val)}
                           minDate="today"
