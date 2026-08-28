@@ -35,8 +35,8 @@ const GET_KPI_METRICS_SQL = `
     COALESCE(SUM(CASE WHEN (item_status != 'Audited' AND (position_status IS NULL OR position_status != 'FILLED') AND (is_audited IS NULL OR is_audited = false)) OR item_status IS NULL THEN 1 ELSE 0 END), 0)::int AS remaining_items
   FROM personnel_audits
   WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
-    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
-         OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%');
+    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2
+         OR REPLACE(division_id, 'Division of ', '') = REPLACE($2, 'Division of ', ''));
 `;
 
 /**
@@ -49,8 +49,8 @@ const GET_AGING_DISTRIBUTION_SQL = `
     COUNT(*)::int AS count
   FROM personnel_audits
   WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
-    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
-         OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%')
+    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2
+         OR REPLACE(division_id, 'Division of ', '') = REPLACE($2, 'Division of ', ''))
     AND position_status = 'UNFILLED'
   GROUP BY vacancy_aging_status
   ORDER BY count DESC;
@@ -66,8 +66,8 @@ const GET_REASONS_UNFILLED_SQL = `
     COUNT(*)::int AS count
   FROM personnel_audits
   WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
-    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2 OR division_id ILIKE '%' || $2 || '%'
-         OR $2 ILIKE '%' || REPLACE(division_id, 'Division of ', '') || '%')
+    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2
+         OR REPLACE(division_id, 'Division of ', '') = REPLACE($2, 'Division of ', ''))
     AND position_status = 'UNFILLED'
   GROUP BY reason_for_vacancy
   ORDER BY count DESC;
@@ -115,7 +115,7 @@ router.get(["/", "/records", "/personnel-audit/records", "/api/personnel-audit/r
     if (db && typeof db.query === "function") {
       let whereConditions = [
         `($1::varchar IS NULL OR pa.region_id = $1 OR pa.region_id ILIKE '%' || $1 || '%')`,
-        `($2::varchar IS NULL OR pa.division_id::text = $2::text OR pa.division_id = $2 OR pa.division_id ILIKE '%' || $2 || '%' OR $2 ILIKE '%' || REPLACE(pa.division_id, 'Division of ', '') || '%')`
+        `($2::varchar IS NULL OR pa.division_id::text = $2::text OR pa.division_id = $2 OR REPLACE(pa.division_id, 'Division of ', '') = REPLACE($2, 'Division of ', ''))`
       ];
       let sqlParams = [targetRegion, targetDivision];
 

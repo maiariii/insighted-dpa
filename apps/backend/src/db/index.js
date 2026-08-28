@@ -46,55 +46,6 @@ pool.on("error", (err) => {
 export const query = (text, params) => pool.query(text, params);
 
 export async function runMigration() {
-  try {
-    await pool.query(`
-      ALTER TABLE users        DROP CONSTRAINT IF EXISTS users_division_id_fkey CASCADE;
-      ALTER TABLE host_hrmos   DROP CONSTRAINT IF EXISTS host_hrmos_division_id_fkey CASCADE;
-      ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_division_id_fkey CASCADE;
-      ALTER TABLE users        DROP CONSTRAINT IF EXISTS uq_user_geographic_identity CASCADE;
-      ALTER TABLE host_hrmos   DROP CONSTRAINT IF EXISTS uq_hrmo_geographic_identity CASCADE;
-      ALTER TABLE host_hrmos   DROP CONSTRAINT IF EXISTS host_hrmos_user_id_region_id_division_id_fkey CASCADE;
-      ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_user_id_region_id_division_id_fkey CASCADE;
-      ALTER TABLE collaborators DROP CONSTRAINT IF EXISTS collaborators_host_hrmo_id_region_id_division_id_fkey CASCADE;
-
-      DROP TABLE IF EXISTS host_hrmos CASCADE;
-
-      CREATE TABLE IF NOT EXISTS collaborators (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        first_name VARCHAR(255) NOT NULL,
-        last_name VARCHAR(255) NOT NULL,
-        position VARCHAR(255),
-        email VARCHAR(255) NOT NULL,
-        region_id VARCHAR(255) NOT NULL,
-        division_id VARCHAR(255) NOT NULL,
-        host_hrmo_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-
-      ALTER TABLE regions          ALTER COLUMN id          TYPE VARCHAR(255);
-      ALTER TABLE division_offices ALTER COLUMN region_id   TYPE VARCHAR(255);
-      ALTER TABLE users            ALTER COLUMN region_id   TYPE VARCHAR(255);
-      ALTER TABLE users            ALTER COLUMN division_id TYPE VARCHAR(255) USING division_id::text;
-
-      ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_region_id_fkey CASCADE;
-      ALTER TABLE personnel_audits DROP CONSTRAINT IF EXISTS personnel_audits_division_id_fkey CASCADE;
-
-      ALTER TABLE personnel_audits ALTER COLUMN region_id  TYPE VARCHAR(255);
-      ALTER TABLE personnel_audits ALTER COLUMN division_id TYPE VARCHAR(255);
-
-      ALTER TABLE personnel_audits ADD COLUMN IF NOT EXISTS dpa_month INT NOT NULL DEFAULT 8;
-      ALTER TABLE personnel_audits ADD COLUMN IF NOT EXISTS dpa_year  INT NOT NULL DEFAULT 2026;
-
-      UPDATE users 
-      SET region_id = 'Region V - Bicol', division_id = 'Division of Masbate City' 
-      WHERE deped_email = 'sebastian.cheng2@deped.gov.ph';
-    `);
-  } catch (err) {
-    // Ignore errors if tables do not exist yet
-  }
-
   const migrationPath = path.join(__dirname, "migrations/001_create_relational_auth_schema.sql");
   const sql = fs.readFileSync(migrationPath, "utf8");
   await pool.query(sql);

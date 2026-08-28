@@ -5,10 +5,13 @@
     "apps/*",
     "packages/*"
   ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
   "scripts": {
     "dev:frontend": "npm run dev -w apps/frontend",
     "dev:backend": "npm run dev -w apps/backend",
-    "dev": "npm run dev --workspaces",
+    "dev": "concurrently --kill-others-on-fail -n backend,frontend -c bgBlue.bold,bgGreen.bold \"npm run dev:backend\" \"npm run dev:frontend\"",
     "test": "npm run test -w apps/backend",
     "build:css": "tailwindcss -i ./public/css/tailwind-source.css -o ./public/css/tailwind.css --minify",
     "watch:css": "tailwindcss -i ./public/css/tailwind-source.css -o ./public/css/tailwind.css --watch"
