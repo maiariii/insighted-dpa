@@ -7,7 +7,7 @@ export const Header = ({ title = 'DepEd Personnel Audit', subtitle = 'Live summa
         <div className="eyebrow">
           <span className="eyebrow-primary">Department of Education</span>
           <span className="eyebrow-divider">|</span>
-          <span className="eyebrow-secondary">BHROD &amp; Infrastructure</span>
+          <span className="eyebrow-secondary">HROD &amp; Infrastructure</span>
         </div>
         <h2>{title}</h2>
         <p>{subtitle}</p>
