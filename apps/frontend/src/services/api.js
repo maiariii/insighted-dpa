@@ -48,9 +48,14 @@ export const API = {
       console.log(`[API Response] HTTP ${response.status} ${url}:`, data);
     }
 
-    if (response.status === 401) {
+    // 401 = no/rejected credentials. verifyToken also rejects invalid/expired
+    // tokens with a 403 (distinct from other 403s like region/division
+    // forbidden-action checks, which must NOT force a logout) — match on the
+    // exact middleware message so only a dead token triggers re-auth.
+    const isExpiredTokenError = response.status === 403 && (data.error === 'Invalid or expired token.');
+    if (response.status === 401 || isExpiredTokenError) {
       if (isAuthRoute) {
-        const errorMsg = data.errors 
+        const errorMsg = data.errors
           ? (Array.isArray(data.errors) ? data.errors.join('. ') : Object.values(data.errors).flat().join('. '))
           : (data.error || data.message || 'Invalid email or credentials.');
         throw new Error(errorMsg);
@@ -108,6 +113,10 @@ export const API = {
 
     async getMe() {
       return API.request('/auth/me');
+    },
+
+    async refresh() {
+      return API.request('/auth/refresh', { method: 'POST' });
     },
 
     async changePassword(payload) {

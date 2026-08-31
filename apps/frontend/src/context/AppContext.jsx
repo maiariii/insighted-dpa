@@ -106,6 +106,24 @@ export const AppProvider = ({ children }) => {
     refreshDashboard();
   }, [refreshDashboard]);
 
+  // Revalidate on tab focus / regaining visibility, so a dashboard left open
+  // (or a browser resumed from sleep) doesn't keep showing a stale snapshot.
+  useEffect(() => {
+    if (!token) return undefined;
+
+    const handleFocus = () => refreshDashboard();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refreshDashboard();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [token, refreshDashboard]);
+
   // Staged edit handlers
   const stageEdit = useCallback((recordId, field, val) => {
     setStagedEdits(prev => {

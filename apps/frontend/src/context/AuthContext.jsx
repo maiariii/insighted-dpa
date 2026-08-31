@@ -64,6 +64,32 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, [logout]);
 
+  // Proactively renew the session before the JWT actually expires, so a tab
+  // left open across the 24h window never hits a hard 403 mid-use. If the
+  // silent refresh itself fails (token already dead, network down, etc.),
+  // the API client's 401/403 handling takes over on the next real request.
+  useEffect(() => {
+    if (!token) return undefined;
+
+    const claims = parseJwt(token);
+    if (!claims || !claims.exp) return undefined;
+
+    const msUntilExpiry = claims.exp * 1000 - Date.now();
+    const REFRESH_MARGIN_MS = 30 * 60 * 1000; // refresh 30 min before expiry
+    const msUntilRefresh = Math.max(0, msUntilExpiry - REFRESH_MARGIN_MS);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await API.auth.refresh();
+        if (res.token) setToken(res.token);
+      } catch (err) {
+        console.warn('Silent token refresh failed:', err.message);
+      }
+    }, msUntilRefresh);
+
+    return () => clearTimeout(timer);
+  }, [token, setToken]);
+
   useEffect(() => {
     let isMounted = true;
     const hydrate = async () => {

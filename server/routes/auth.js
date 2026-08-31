@@ -424,5 +424,47 @@ router.get(["/me", "/auth/me", "/api/auth/me", "/insighted-dpa/api/auth/me"], ve
   }
 });
 
+/**
+ * POST /api/auth/refresh
+ * Silently reissues a fresh 24h token for an already-authenticated session,
+ * so a long-lived tab doesn't hit a hard 403 mid-session. Requires the
+ * current token to still be valid (verifyToken rejects anything already
+ * expired) — once truly expired, the client must re-authenticate.
+ */
+router.post(["/refresh", "/auth/refresh", "/api/auth/refresh", "/insighted-dpa/api/auth/refresh"], verifyToken, async (req, res) => {
+  try {
+    const userRes = await db.query(
+      `SELECT id, region_id, division_id, first_name, last_name, deped_email, role, is_active
+       FROM users
+       WHERE id = $1`,
+      [req.user.id]
+    );
+
+    const user = userRes.rows[0];
+    if (!user || !user.is_active) {
+      return res.status(403).json({ success: false, error: "Account is inactive or no longer exists." });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        deped_email: user.deped_email,
+        role: user.role,
+        region_id: user.region_id,
+        division_id: user.division_id,
+        first_name: user.first_name,
+        last_name: user.last_name
+      },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    return res.status(200).json({ success: true, token });
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    return res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
+
 module.exports = router;
 module.exports.verifyToken = verifyToken;

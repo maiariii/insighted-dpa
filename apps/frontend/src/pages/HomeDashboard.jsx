@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { CategoryItemsModal } from '../components/CategoryItemsModal';
 import {
@@ -61,8 +61,15 @@ const valueLabelsPlugin = {
 };
 
 export const HomeDashboard = () => {
-  const { kpis, records, isRecordCompleted, theme } = useApp();
+  const { kpis, records, isRecordCompleted, theme, refreshDashboard, loadingDashboard } = useApp();
   const [selectedCategoryModal, setSelectedCategoryModal] = useState(null);
+
+  // Guarantee a fresh fetch every time this page is mounted/navigated to,
+  // rather than relying solely on the one-time fetch tied to login.
+  useEffect(() => {
+    refreshDashboard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isDark = theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
 
@@ -184,6 +191,17 @@ export const HomeDashboard = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => refreshDashboard()}
+          disabled={loadingDashboard}
+          className="text-xs font-semibold text-slate-500 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 transition-colors flex items-center gap-1"
+        >
+          {loadingDashboard ? 'Refreshing…' : '⟳ Refresh Data'}
+        </button>
+      </div>
+
       {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="card-glass p-5">
