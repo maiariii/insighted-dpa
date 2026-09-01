@@ -1,0 +1,98 @@
+/*
+ * InsightED Design Tokens
+ * ========================
+ * Single source-of-truth for all design values used across the component library.
+ * Extracted verbatim from apps/frontend/src/index.css :root block.
+ *
+ * Usage: import this file once at the app entry point (or in Storybook preview).
+ * All components reference these variables — no values are duplicated in component CSS.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap");
+
+:root {
+  /* ── Brand colours ───────────────────────────────────────────────────── */
+  --iu-blue:   #0f5fb7;
+  --iu-blue-2: #2783de;
+  --iu-yellow: #f7c948;
+  --iu-red:    #d62828;
+  --iu-green:  #1f9d55;
+  --iu-orange: #d97706;
+
+  /* ── Semantic colours (light mode) ──────────────────────────────────── */
+  --iu-ink:            #172033;
+  --iu-muted:          #667085;
+  --iu-surface:        rgba(255, 255, 255, 0.75);
+  --iu-surface-strong: rgba(255, 255, 255, 0.75);
+  --iu-border:         rgba(255, 255, 255, 0.48);
+  --iu-line:           rgba(23, 32, 51, 0.1);
+  --iu-shadow:         0 24px 80px rgba(15, 95, 183, 0.16);
+
+  /* ── Shape ───────────────────────────────────────────────────────────── */
+  --iu-radius: 22px;
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  --iu-font-family: "Plus Jakarta Sans", "DM Sans", ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  color-scheme: light;
+  font-family: var(--iu-font-family);
+}
+
+/* Dark mode token overrides — mirrors body.dark {} in the source app */
+body.dark {
+  --iu-ink:            #f8fafc;
+  --iu-muted:          rgba(255, 255, 255, 0.68);
+  --iu-surface:        rgba(15, 23, 42, 0.75);
+  --iu-surface-strong: rgba(15, 23, 42, 0.75);
+  --iu-border:         rgba(255, 255, 255, 0.14);
+  --iu-line:           rgba(255, 255, 255, 0.12);
+  --iu-shadow:         0 24px 80px rgba(0, 0, 0, 0.28);
+  color-scheme: dark;
+}
+
+/* Global reset used across all components */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Shared glassmorphic card utility — referenced via class in component CSS */
+.iu-glass {
+  background: rgba(248, 250, 252, 0.35);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.02);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+body.dark .iu-glass {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(226, 232, 240, 0.18);
+}
+
+/* Specular sheen overlay — place as first child inside card-glass containers */
+.iu-specular-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+body.dark .iu-specular-sheen {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 100%
+  );
+}
+
+/* Scrollbar utility */
+.iu-no-scrollbar::-webkit-scrollbar { display: none; }
+.iu-no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

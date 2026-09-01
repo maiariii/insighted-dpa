@@ -1,0 +1,141 @@
+/* KpiCard.module.css
+ * Extracted from apps/frontend/src/index.css — button.personnel-tab.kpi rules.
+ */
+
+/* ── Grid wrapper ─────────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* ── Card (button) ────────────────────────────────────────────────────── */
+.kpiCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background-color: #ffffff;
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+
+.kpiCard:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.kpiCard.active {
+  border-color: #2563eb;
+  background-color: #f8fafc;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15), 0 4px 12px rgba(37, 99, 235, 0.05);
+}
+
+:global(body.dark) .kpiCard {
+  background-color: #0f172a;
+  border-color: rgba(226, 232, 240, 0.18);
+}
+
+:global(body.dark) .kpiCard.active {
+  background-color: #1e293b;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Specular sheen ───────────────────────────────────────────────────── */
+.sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 1;
+}
+
+:global(body.dark) .sheen {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 100%
+  );
+}
+
+/* ── Typography ───────────────────────────────────────────────────────── */
+.label {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 4px;
+  cursor: pointer;
+  font-weight: 800;
+  position: relative;
+  z-index: 2;
+}
+
+:global(body.dark) .label { color: rgba(255, 255, 255, 0.68); }
+
+.value {
+  font-size: 1.75rem;
+  color: #0f172a;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 2;
+}
+
+:global(body.dark) .value { color: #f8fafc; }
+
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  position: relative;
+  z-index: 2;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 6px;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+:global(body.dark) .progressTrack { background-color: rgba(255, 255, 255, 0.12); }
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.completionSticker {
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: #64748b;
+  margin: 0;
+  transition: color 0.2s ease;
+}
+
+.kpiCard.active .completionSticker { color: #1d4ed8; font-weight: 800; }
+
+:global(body.dark) .completionSticker { color: rgba(255, 255, 255, 0.68); }

@@ -1,0 +1,318 @@
+/* Sidebar.module.css
+ * Extracted verbatim from apps/frontend/src/index.css sidebar rules.
+ * Uses --iu-* CSS custom properties defined in tokens.css.
+ */
+
+/* ── Glass utility ────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(248, 250, 252, 0.35);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.02);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+:global(body.dark) .glass {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(226, 232, 240, 0.18);
+}
+
+/* ── Sidebar shell ────────────────────────────────────────────────────── */
+.sidebar {
+  background: rgba(248, 250, 252, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.02);
+  border-radius: 20px;
+  padding: 14px;
+  position: sticky;
+  top: 20px;
+  height: calc(100vh - 40px);
+  width: 74px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease, background 0.3s ease;
+  z-index: 1000;
+}
+
+:global(body.dark) .sidebar {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(226, 232, 240, 0.18);
+}
+
+.sidebar:hover {
+  width: 280px;
+  height: calc(100vh - 40px);
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.22);
+}
+
+/* ── Brand ────────────────────────────────────────────────────────────── */
+.brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 240px;
+}
+
+.brandTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--iu-ink, #172033);
+  white-space: nowrap;
+}
+
+.brandSubtitle {
+  margin: 4px 0 0;
+  color: var(--iu-muted, #667085);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.logoWrap {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  background: #fff;
+  padding: 4px;
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.logoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.8);
+}
+
+/* ── Collapsible text ─────────────────────────────────────────────────── */
+.collapsibleText {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-10px);
+  transition: opacity 0.2s ease, transform 0.25s ease, visibility 0.2s;
+  white-space: nowrap;
+}
+
+.sidebar:hover .collapsibleText {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+/* ── Divider ──────────────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background-color: var(--iu-line, rgba(23, 32, 51, 0.1));
+  border: 0;
+  margin: 2px 0;
+  width: 100%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar:hover .divider { opacity: 1; }
+
+/* ── Profile card ─────────────────────────────────────────────────────── */
+.profileCard {
+  padding: 0;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: none;
+  min-width: 0;
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  max-height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease, max-height 0.28s ease, padding 0.28s ease, margin 0.28s ease, visibility 0.2s;
+}
+
+.sidebar:hover .profileCard {
+  opacity: 1;
+  visibility: visible;
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+  padding: 14px 16px !important;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+:global(body.dark) .sidebar:hover .profileCard {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(226, 232, 240, 0.18);
+}
+
+.profileName {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--iu-ink, #172033);
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.profilePosition {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--iu-muted, #667085);
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.profileLocation {
+  display: block;
+  font-size: 12px;
+  color: var(--iu-muted, #667085);
+  line-height: 1.45;
+  margin-top: 2px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* ── Nav ──────────────────────────────────────────────────────────────── */
+.nav {
+  display: grid;
+  gap: 8px;
+}
+
+.navLink {
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 14px;
+  text-align: left;
+  background: transparent;
+  color: var(--iu-muted, #667085);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.icon {
+  width: 24px;
+  text-align: center;
+  flex: 0 0 24px;
+}
+
+.navLink.active,
+.navLink:hover {
+  background: rgba(15, 95, 183, 0.1);
+  color: var(--iu-blue, #0f5fb7);
+  font-weight: 800;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.btn {
+  min-height: 42px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 16px;
+  cursor: pointer;
+  font-weight: 800;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #fff;
+  background: var(--iu-blue, #0f5fb7);
+  box-shadow: 0 10px 20px rgba(15, 95, 183, 0.18);
+  transition: opacity 0.2s ease;
+}
+
+.secondary {
+  color: var(--iu-ink, #172033);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--iu-line, rgba(23, 32, 51, 0.1));
+  box-shadow: none;
+}
+
+:global(body.dark) .secondary {
+  background: rgba(15, 23, 42, 0.52);
+  color: var(--iu-ink, #f8fafc);
+}
+
+.themeBtn { margin-top: auto; }
+
+.signoutBtn {
+  margin-top: 8px;
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
+  background: rgba(254, 226, 226, 0.4);
+}
+
+:global(body.dark) .signoutBtn {
+  background: rgba(127, 29, 29, 0.25);
+}
+
+/* ── Footer note ──────────────────────────────────────────────────────── */
+.sidebarFooter {
+  color: var(--iu-muted, #667085);
+  font-size: 12px;
+  line-height: 1.45;
+  border-radius: 16px;
+  padding: 0;
+  white-space: normal;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease, max-height 0.28s ease, padding 0.28s ease, visibility 0.2s;
+}
+
+.sidebar:hover .sidebarFooter {
+  max-height: 300px;
+  padding: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+:global(body.dark) .sidebar:hover .sidebarFooter {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(226, 232, 240, 0.18);
+}
+
+/* ── Responsive: sidebar goes full-width on narrow screens ──────────── */
+@media (max-width: 1100px) {
+  .sidebar {
+    position: static;
+    height: auto;
+    width: 100% !important;
+  }
+
+  .collapsibleText {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+  }
+
+  .profileCard,
+  .sidebarFooter {
+    opacity: 1;
+    visibility: visible;
+    max-height: 300px;
+    padding: 14px;
+  }
+
+  .nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

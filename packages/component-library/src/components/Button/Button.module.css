@@ -1,0 +1,153 @@
+/* Button.module.css
+ * Covers all button variants used across insighted-dpa.
+ * Extracted from apps/frontend/src/index.css .btn rules + inline class strings
+ * in AuditDashboard.jsx and Interventions.jsx.
+ */
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 16px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:active { transform: translateY(1px); }
+.btn:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── Primary (blue) ───────────────────────────────────────────────────── */
+.primary {
+  color: #ffffff;
+  background: var(--iu-blue, #0f5fb7);
+  box-shadow: 0 10px 20px rgba(15, 95, 183, 0.18);
+}
+
+.primary:hover:not(:disabled) {
+  background: #0d52a0;
+  box-shadow: 0 12px 24px rgba(15, 95, 183, 0.26);
+  transform: translateY(-1px);
+}
+
+/* ── Secondary (glass) ────────────────────────────────────────────────── */
+.secondary {
+  color: var(--iu-ink, #172033);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--iu-line, rgba(23, 32, 51, 0.1));
+  box-shadow: none;
+}
+
+.secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.72); }
+
+:global(body.dark) .secondary {
+  background: rgba(15, 23, 42, 0.52);
+  color: var(--iu-ink, #f8fafc);
+}
+
+/* ── Teal (Add Intervention / submit form) ────────────────────────────── */
+.teal {
+  color: #ffffff;
+  background: #0d9488;
+  box-shadow: 0 8px 16px rgba(13, 148, 136, 0.22);
+}
+
+.teal:hover:not(:disabled) {
+  background: #0f766e;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(13, 148, 136, 0.3);
+}
+
+/* ── Save-active (green) ──────────────────────────────────────────────── */
+.save_active {
+  color: #ffffff;
+  background: #10b981;
+  border: 1px solid #059669;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2), 0 2px 4px -2px rgba(16, 185, 129, 0.1);
+  font-weight: 600;
+  min-height: 36px;
+  border-radius: 6px;
+  padding: 0 16px;
+}
+
+.save_active:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+/* ── Save-disabled (grey) ─────────────────────────────────────────────── */
+.save_disabled {
+  color: #94a3b8;
+  background: #cbd5e1;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+  min-height: 36px;
+  border-radius: 6px;
+  padding: 0 16px;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ── Undo (amber) ─────────────────────────────────────────────────────── */
+.undo {
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 36px;
+  border-radius: 12px;
+  padding: 0 14px;
+}
+
+.undo:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.22);
+}
+
+:global(body.dark) .undo {
+  color: #fcd34d;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(120, 80, 0, 0.25);
+}
+
+/* ── Danger (red) ─────────────────────────────────────────────────────── */
+.danger {
+  color: #ffffff;
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+}
+
+.danger:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+/* ── Loading spinner ──────────────────────────────────────────────────── */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

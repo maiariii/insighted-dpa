@@ -1,0 +1,97 @@
+/* StatCard.module.css
+ * Extracted from apps/frontend/src/index.css — .card-glass, .specular-sheen rules.
+ */
+
+.card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.06);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 20px;
+}
+
+:global(body.dark) .card {
+  background: rgba(15, 23, 42, 0.45);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Specular sheen ───────────────────────────────────────────────────── */
+.sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+  z-index: 1;
+}
+
+:global(body.dark) .sheen {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    transparent 100%
+  );
+}
+
+/* ── Content (sits above sheen) ───────────────────────────────────────── */
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: block;
+  position: relative;
+  z-index: 2;
+}
+
+.value {
+  font-size: 1.875rem; /* text-3xl */
+  font-weight: 700;
+  color: #1e293b;
+  display: block;
+  margin-top: 4px;
+  position: relative;
+  z-index: 2;
+}
+
+:global(body.dark) .value { color: #f8fafc; }
+
+.extra {
+  position: relative;
+  z-index: 2;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Inline progress (Completion variant) ─────────────────────────────── */
+.inlineProgressTrack {
+  flex: 1;
+  height: 10px;
+  background-color: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+:global(body.dark) .inlineProgressTrack { background-color: #334155; }
+
+.inlineProgressFill {
+  height: 100%;
+  background-color: #3b82f6;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
