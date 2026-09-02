@@ -39,7 +39,9 @@ export const REASONS_FOR_VACANCY = [
   "Others",
   "Promotion",
   "Reclassification",
-  "Resignation"
+  "Resignation",
+  "Retirement",
+  "Transfer"
 ];
 
 export const STATUSES_OF_VACANCY = [
