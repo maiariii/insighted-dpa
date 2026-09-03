@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { AddInterventionModal } from '../components/AddInterventionModal';
 import { API } from '../services/api';
@@ -10,6 +10,7 @@ export const Interventions = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const formatFieldText = (val, fallback = 'N/A') => {
     if (!val) return fallback;
@@ -20,6 +21,88 @@ export const Interventions = () => {
       return val.text || JSON.stringify(val);
     }
     return String(val);
+  };
+
+  const filteredInterventions = useMemo(() => {
+    if (!searchQuery.trim()) return interventions;
+    const q = searchQuery.toLowerCase().trim();
+    return interventions.filter(item => {
+      const area = (item.area_of_concern || '').toLowerCase();
+      const strategy = (item.intervention_to_undertake || '').toLowerCase();
+      const office = (item.responsible_office || '').toLowerCase();
+      const outcomes = formatFieldText(item.expected_outcomes, '').toLowerCase();
+      const remarks = formatFieldText(item.remarks, '').toLowerCase();
+      return area.includes(q) || strategy.includes(q) || office.includes(q) || outcomes.includes(q) || remarks.includes(q);
+    });
+  }, [interventions, searchQuery]);
+
+  const handleExportCSV = () => {
+    if (!filteredInterventions || filteredInterventions.length === 0) {
+      alert('No interventions available to export.');
+      return;
+    }
+
+    const headers = [
+      'AREA OF CONCERN',
+      'INTERVENTION TO UNDERTAKE',
+      'RESPONSIBLE OFFICE',
+      'TARGET COMPLETION DATE',
+      'EXPECTED OUTCOMES',
+      'REMARKS',
+      'DATE CREATED'
+    ];
+
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const rows = filteredInterventions.map(item => {
+      let targetDateStr = 'N/A';
+      if (item.target_date) {
+        try {
+          targetDateStr = typeof item.target_date === 'string'
+            ? item.target_date.split('T')[0]
+            : new Date(item.target_date).toISOString().split('T')[0];
+        } catch {
+          targetDateStr = String(item.target_date);
+        }
+      }
+
+      let createdDateStr = 'N/A';
+      if (item.created_at) {
+        try {
+          createdDateStr = typeof item.created_at === 'string'
+            ? item.created_at.split('T')[0]
+            : new Date(item.created_at).toISOString().split('T')[0];
+        } catch {
+          createdDateStr = String(item.created_at);
+        }
+      }
+
+      return [
+        escapeCsv(item.area_of_concern || 'N/A'),
+        escapeCsv(item.intervention_to_undertake || 'N/A'),
+        escapeCsv(item.responsible_office || 'N/A'),
+        escapeCsv(targetDateStr),
+        escapeCsv(formatFieldText(item.expected_outcomes, 'N/A')),
+        escapeCsv(formatFieldText(item.remarks, 'N/A')),
+        escapeCsv(createdDateStr)
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const todayStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('href', url);
+    link.setAttribute('download', `interventions_list_${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const openEditModal = (item) => {
@@ -64,7 +147,26 @@ export const Interventions = () => {
             Formulate and monitor strategic actions designed to accelerate vacancy processing.
           </p>
         </div>
-        <div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            type="text"
+            className="px-3.5 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition shadow-xs"
+            placeholder="Search interventions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ maxWidth: '220px' }}
+          />
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+            title="Export current interventions to CSV"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Export CSV</span>
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -80,14 +182,16 @@ export const Interventions = () => {
 
       {/* Interventions Card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {interventions.length === 0 ? (
+        {filteredInterventions.length === 0 ? (
           <div className="col-span-full p-12 text-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-white/40 dark:bg-slate-800/40">
             <p className="text-slate-500 dark:text-slate-400 font-medium">
-              No interventions submitted yet for vacant positions.
+              {interventions.length === 0
+                ? 'No interventions submitted yet for vacant positions.'
+                : 'No matching interventions found for your search query.'}
             </p>
           </div>
         ) : (
-          interventions.map((item) => (
+          filteredInterventions.map((item) => (
             <div
               key={item.id || item.created_at}
               className="p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:shadow-md transition flex flex-col justify-between relative group"
