@@ -1,13 +1,11 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { RotateCcw, Trash2 } from 'lucide-react';
+import { RotateCcw, Download } from 'lucide-react';
 import { API } from '../services/api';
 import { useApp } from '../context/AppContext';
 import { PersonnelAuditKPIs } from '../components/PersonnelAuditKPIs';
 import { RemarksModal, parseRemarksValue } from '../components/RemarksModal';
 import { RowEditModal } from '../components/RowEditModal';
 import { UndoChangesModal } from '../components/UndoChangesModal';
-import { SaveFinalizedEditsModal } from '../components/SaveFinalizedEditsModal';
-import { UnfinalizeConfirmModal } from '../components/UnfinalizeConfirmModal';
 import { FlatpickrInput } from '../components/FlatpickrInput';
 import { REASONS_FOR_VACANCY, STATUSES_OF_VACANCY, NA_TENTATIVE_DATE_STATUSES } from '../utils/config';
 import { useTableSortAndFilter } from '../hooks/useTableSortAndFilter';
@@ -34,10 +32,6 @@ export const AuditDashboard = () => {
   const [editingModalRecord, setEditingModalRecord] = useState(null);
   const [isUndoModalOpen, setIsUndoModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isFinalizedEditMode, setIsFinalizedEditMode] = useState(false);
-  const [isFinalizedSaveModalOpen, setIsFinalizedSaveModalOpen] = useState(false);
-  const [unfinalizeTargetRecord, setUnfinalizeTargetRecord] = useState(null);
-  const [isUnfinalizing, setIsUnfinalizing] = useState(false);
   const PAGE_SIZE = 100;
 
   // Helper to safely extract record key across id, ITEM NUMBER, or item_number
@@ -46,10 +40,8 @@ export const AuditDashboard = () => {
     return record.id || record['ITEM NUMBER'] || record.item_number || '';
   };
 
-  // Decoupled local edit-state objects for Main Audit Panel vs Finalized Records Table
-  // Persisted to localStorage so unsaved Draft/Incomplete edits survive a page refresh
+  // Persisted staged edits to localStorage so unsaved Draft/Incomplete edits survive a page refresh
   const MAIN_STAGED_EDITS_KEY = 'auditDashboard.mainStagedEdits';
-  const FINALIZED_STAGED_EDITS_KEY = 'auditDashboard.finalizedStagedEdits';
 
   const loadPersistedEdits = (key) => {
     try {
@@ -61,7 +53,6 @@ export const AuditDashboard = () => {
   };
 
   const [mainStagedEdits, setMainStagedEdits] = useState(() => loadPersistedEdits(MAIN_STAGED_EDITS_KEY));
-  const [finalizedStagedEdits, setFinalizedStagedEdits] = useState(() => loadPersistedEdits(FINALIZED_STAGED_EDITS_KEY));
 
   useEffect(() => {
     try {
@@ -70,14 +61,6 @@ export const AuditDashboard = () => {
       // ignore storage write failures (e.g. quota exceeded, private browsing)
     }
   }, [mainStagedEdits]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(FINALIZED_STAGED_EDITS_KEY, JSON.stringify(finalizedStagedEdits));
-    } catch {
-      // ignore storage write failures (e.g. quota exceeded, private browsing)
-    }
-  }, [finalizedStagedEdits]);
 
   // Helper to compute is_audited boolean flag from merged row state.
   // Delegates to checkRecordRequiredFields so the NA/optional tentative-date
@@ -197,143 +180,11 @@ export const AuditDashboard = () => {
     }
   };
 
-  // --- FINALIZED TABLE CHANGE TRACKING HANDLERS ---
-  const stageFinalizedEdit = (recordId, field, val) => {
-    if (!recordId) return;
-    const cleanVal = field === 'name_of_incumbent' && typeof val === 'string' ? val.toUpperCase() : val;
-    console.log(`[FinalizedEdit Staged] recordId=${recordId}, field=${field}, val=${cleanVal}`);
-    setFinalizedStagedEdits(prev => {
-      const rec = records.find(r => String(getRecordKey(r)) === String(recordId));
-      const updatedRow = {
-        ...(prev[recordId] || {}),
-        [field]: cleanVal
-      };
-      delete updatedRow.item_status;
-      updatedRow.is_audited = computeAuditedFlag(rec, updatedRow);
-      return {
-        ...prev,
-        [recordId]: updatedRow
-      };
-    });
-  };
 
-  const handleFinalizedStatusChange = (recordId, newStatus) => {
-    if (!recordId) return;
-    if (newStatus === 'UNFILLED') {
-      stageFinalizedEdit(recordId, 'position_status', 'UNFILLED');
-      stageFinalizedEdit(recordId, 'name_of_incumbent', '');
-      stageFinalizedEdit(recordId, 'first_day_of_service', '');
-    } else if (newStatus === 'FILLED') {
-      stageFinalizedEdit(recordId, 'position_status', 'FILLED');
-      stageFinalizedEdit(recordId, 'date_of_vacancy', '');
-      stageFinalizedEdit(recordId, 'reason_for_vacancy', '');
-      stageFinalizedEdit(recordId, 'status_of_vacancy', '');
-      stageFinalizedEdit(recordId, 'tentative_date_to_fill_up', '');
-    }
-  };
 
-  const resolveFinalizedValue = (record, field, aliasKey) => {
-    if (!record) return '';
-    const recId = getRecordKey(record);
-    const rowEdits = finalizedStagedEdits[recId] || {};
-    if (rowEdits[field] !== undefined) return rowEdits[field];
-    if (record[field] !== undefined && record[field] !== null) return record[field];
-    if (aliasKey && record[aliasKey] !== undefined && record[aliasKey] !== null) return record[aliasKey];
-    return '';
-  };
-
-  const finalizedPendingCount = Object.keys(finalizedStagedEdits).length;
-
-  const handleConfirmFinalizedSave = async () => {
-    console.log('[FinalizedSave] Step 2: handleConfirmFinalizedSave triggered', { finalizedPendingCount, finalizedStagedEdits });
-    if (finalizedPendingCount === 0) return;
-    setSaving(true);
-    try {
-      const entries = Object.entries(finalizedStagedEdits);
-      const targetIds = entries.map(([id]) => id);
-      console.log('[FinalizedSave] Step 3: Sending update requests for target IDs:', targetIds);
-
-      const promises = entries.map(([id, fields]) => {
-        const cleanFields = { ...fields };
-        delete cleanFields.item_status;
-        if (NA_TENTATIVE_DATE_STATUSES.includes(cleanFields.status_of_vacancy)) {
-          cleanFields.tentative_date_to_fill_up = 'N/A';
-        }
-        console.log(`[FinalizedSave] API.dpa.updateRecord call for ID ${id}:`, cleanFields);
-        return API.dpa.updateRecord(id, cleanFields);
-      });
-      const results = await Promise.all(promises);
-      console.log('[FinalizedSave] Step 4: API requests resolved successfully:', results);
-
-      // ONLY clear dirty changes state AFTER confirmed successful API save
-      setFinalizedStagedEdits({});
-      setIsFinalizedSaveModalOpen(false);
-      setIsFinalizedEditMode(false);
-      await refreshDashboard();
-      alert(`Successfully saved ${targetIds.length} finalized personnel record(s)!`);
-    } catch (err) {
-      console.error('[FinalizedSave] ERROR in handleConfirmFinalizedSave:', err);
-      alert(`Failed to save finalized records: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Clears only the audit-specific fields on a finalized record (does NOT delete the row),
-  // so it drops out of is_audited/FILLED-based completion checks and reappears in the Main Panel.
-  const UNFINALIZE_RESET_FIELDS = {
-    position_status: 'UNFILLED',
-    name_of_incumbent: '',
-    first_day_of_service: '',
-    date_of_vacancy: '',
-    reason_for_vacancy: '',
-    status_of_vacancy: '',
-    other_remarks: '',
-    tentative_date_to_fill_up: '',
-    is_audited: false
-  };
-
-  const handleConfirmUnfinalize = async () => {
-    if (!unfinalizeTargetRecord) return;
-    const recId = getRecordKey(unfinalizeTargetRecord);
-    setIsUnfinalizing(true);
-    try {
-      await API.dpa.updateRecord(recId, UNFINALIZE_RESET_FIELDS);
-
-      // Drop any stale staged edits for this record now that its audit data is cleared
-      setFinalizedStagedEdits(prev => {
-        const copy = { ...prev };
-        delete copy[recId];
-        return copy;
-      });
-      setMainStagedEdits(prev => {
-        const copy = { ...prev };
-        delete copy[recId];
-        return copy;
-      });
-
-      setUnfinalizeTargetRecord(null);
-      await refreshDashboard();
-    } catch (err) {
-      console.error('[Unfinalize] Error clearing finalized audit data:', err);
-      alert(`Failed to clear finalized audit data: ${err.message}`);
-    } finally {
-      setIsUnfinalizing(false);
-    }
-  };
-
-  // Separate active (uncompleted) rows and completed rows
-  const activeRecords = useMemo(() => {
-    return records.filter(r => !isRecordCompleted(r));
-  }, [records, isRecordCompleted]);
-
-  const completedRecords = useMemo(() => {
-    return records.filter(isRecordCompleted);
-  }, [records, isRecordCompleted]);
-
-  // Filter active records by global search, region, status, and category
+  // Filter all records by global search, region, status, and category
   const filteredActiveRecords = useMemo(() => {
-    return activeRecords.filter(r => {
+    return (records || []).filter(r => {
       const itemNum = (r.item_number || r['ITEM NUMBER'] || '').toString().toLowerCase();
       const posTitle = (r.position_title || r['POSITION TITLE'] || '').toString().toLowerCase();
       const regionVal = (r.region_id || r.region_name || r.REGION || r['REGION'] || '').toString().toLowerCase();
@@ -348,7 +199,7 @@ export const AuditDashboard = () => {
       return matchesSearch && matchesRegion && matchesStatus && matchesCategory;
     });
 
-  }, [activeRecords, searchQuery, selectedRegionFilter, selectedStatusFilter, activeCategoryFilter]);
+  }, [records, searchQuery, selectedRegionFilter, selectedStatusFilter, activeCategoryFilter]);
 
   // Submission Status helper for sorting and filtering.
   // Evaluated from the merged (persisted + staged) field state rather than
@@ -360,9 +211,12 @@ export const AuditDashboard = () => {
     const recId = getRecordKey(record);
     const rowEdits = mainStagedEdits[recId] || {};
     const validation = checkRecordRequiredFields(record, rowEdits);
-    if (validation.isUntouched) return '';
+    if (validation.isUntouched) {
+      if (isRecordCompleted(record)) return 'Audited';
+      return '';
+    }
     return validation.isDraft ? 'Draft' : 'Incomplete';
-  }, [mainStagedEdits]);
+  }, [mainStagedEdits, isRecordCompleted]);
 
   // Field extractors for Main Audit Table sorting & column filtering
   const mainExtractors = useMemo(() => ({
@@ -408,34 +262,11 @@ export const AuditDashboard = () => {
   // Main Audit Table hook instance
   const mainTable = useTableSortAndFilter(filteredActiveRecords, mainExtractors, mainCustomComparators);
 
-  // Field extractors for Finalized / Audited Personnel Records Table
-  const finalizedExtractors = useMemo(() => ({
-    item_number: r => r.item_number || r['ITEM NUMBER'] || '',
-    position_title: r => r.position_title || r['POSITION TITLE'] || '',
-    position_category: r => r.position_category || r['POSITION CATEGORY'] || '',
-    item_status: r => r.item_status || r.ITEM_STATUS || resolveFinalizedValue(r, 'position_status', 'POSITION STATUS') || '',
-    sg: r => r.sg || r.SG || '',
-    year_created: r => r.year_created || r['YEAR CREATED'] || '',
-    years_unfilled: r => r.years_unfilled || r['YEARS UNFILLED'] || '',
-    vacancy_aging_status: r => r.vacancy_aging_status || r['VACANCY AGING STATUS'] || '',
-    position_status: r => resolveFinalizedValue(r, 'position_status', 'POSITION STATUS') || r.item_status || '',
-    name_of_incumbent: r => resolveFinalizedValue(r, 'name_of_incumbent', 'NAME OF INCUMBENT') || '',
-    first_day_of_service: r => resolveFinalizedValue(r, 'first_day_of_service', 'FIRST DAY OF SERVICE') || '',
-    date_of_vacancy: r => resolveFinalizedValue(r, 'date_of_vacancy', 'DATE OF VACANCY') || '',
-    reason_for_vacancy: r => resolveFinalizedValue(r, 'reason_for_vacancy', 'REASON FOR VACANCY') || '',
-    status_of_vacancy: r => resolveFinalizedValue(r, 'status_of_vacancy', 'STATUS OF VACANCY') || '',
-    tentative_date_to_fill_up: r => resolveFinalizedValue(r, 'tentative_date_to_fill_up', 'TENTATIVE DATE TO FILL-UP') || '',
-    other_remarks: r => parseRemarksValue(resolveFinalizedValue(r, 'other_remarks', 'OTHER REMARKS')).text || ''
-  }), [finalizedStagedEdits]);
-
-  // Finalized Table hook instance
-  const finalizedTable = useTableSortAndFilter(completedRecords, finalizedExtractors);
-
-  // Export CSV Handler for Finalized / Audited Records
-  const handleExportCompletedCSV = () => {
-    const list = finalizedTable.processedData;
+  // Export CSV Handler for Personnel Audit Records (respects current search/filters)
+  const handleExportCSV = () => {
+    const list = mainTable.processedData;
     if (!list || list.length === 0) {
-      alert('No finalized personnel records available to export.');
+      alert('No personnel records available to export.');
       return;
     }
 
@@ -455,7 +286,8 @@ export const AuditDashboard = () => {
       'REASON FOR VACANCY',
       'STATUS OF VACANCY',
       'TENTATIVE DATE OF FIRST DAY OF SERVICE',
-      'OTHER REMARKS'
+      'OTHER REMARKS',
+      'AUDIT STATUS'
     ];
 
     const escapeCsv = (val) => {
@@ -465,9 +297,10 @@ export const AuditDashboard = () => {
     };
 
     const rows = list.map(record => {
-      const posStatus = record.position_status || record['POSITION STATUS'] || record.item_status || 'UNFILLED';
+      const posStatus = resolveMainValue(record, 'position_status', 'POSITION STATUS') || record.item_status || 'UNFILLED';
       const isFilled = posStatus === 'FILLED';
-      const remarksParsed = parseRemarksValue(record.other_remarks || record['OTHER REMARKS'] || '');
+      const remarksParsed = parseRemarksValue(resolveMainValue(record, 'other_remarks', 'OTHER REMARKS'));
+      const statusLabel = getSubmissionStatus(record) || (isRecordCompleted(record) ? 'Audited' : 'Unaudited');
 
       return [
         escapeCsv(record.item_number || record['ITEM NUMBER'] || 'N/A'),
@@ -479,13 +312,14 @@ export const AuditDashboard = () => {
         escapeCsv(record.years_unfilled || record['YEARS UNFILLED'] || 'N/A'),
         escapeCsv(record.vacancy_aging_status || record['VACANCY AGING STATUS'] || 'N/A'),
         escapeCsv(posStatus),
-        escapeCsv(isFilled ? (record.name_of_incumbent || record['NAME OF INCUMBENT'] || 'N/A') : 'N/A'),
-        escapeCsv(isFilled ? (record.first_day_of_service || record['FIRST DAY OF SERVICE'] || 'N/A') : 'N/A'),
-        escapeCsv(!isFilled ? (record.date_of_vacancy || record['DATE OF VACANCY'] || 'N/A') : 'N/A'),
-        escapeCsv(!isFilled ? (record.reason_for_vacancy || record['REASON FOR VACANCY'] || 'N/A') : 'N/A'),
-        escapeCsv(!isFilled ? (record.status_of_vacancy || record['STATUS OF VACANCY'] || 'N/A') : 'N/A'),
-        escapeCsv(!isFilled ? (record.tentative_date_to_fill_up || record['TENTATIVE DATE TO FILL-UP'] || 'N/A') : 'N/A'),
-        escapeCsv(remarksParsed.text || 'N/A')
+        escapeCsv(isFilled ? (resolveMainValue(record, 'name_of_incumbent', 'NAME OF INCUMBENT') || 'N/A') : 'N/A'),
+        escapeCsv(isFilled ? (resolveMainValue(record, 'first_day_of_service', 'FIRST DAY OF SERVICE') || 'N/A') : 'N/A'),
+        escapeCsv(!isFilled ? (resolveMainValue(record, 'date_of_vacancy', 'DATE OF VACANCY') || 'N/A') : 'N/A'),
+        escapeCsv(!isFilled ? (resolveMainValue(record, 'reason_for_vacancy', 'REASON FOR VACANCY') || 'N/A') : 'N/A'),
+        escapeCsv(!isFilled ? (resolveMainValue(record, 'status_of_vacancy', 'STATUS OF VACANCY') || 'N/A') : 'N/A'),
+        escapeCsv(!isFilled ? (resolveMainValue(record, 'tentative_date_to_fill_up', 'TENTATIVE DATE TO FILL-UP') || 'N/A') : 'N/A'),
+        escapeCsv(remarksParsed.text || 'N/A'),
+        escapeCsv(statusLabel)
       ].join(',');
     });
 
@@ -495,7 +329,7 @@ export const AuditDashboard = () => {
     const link = document.createElement('a');
     const todayStr = new Date().toISOString().split('T')[0];
     link.setAttribute('href', url);
-    link.setAttribute('download', `finalized_personnel_records_${todayStr}.csv`);
+    link.setAttribute('download', `personnel_audit_records_${todayStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -534,7 +368,7 @@ export const AuditDashboard = () => {
               Item Number and Position Title stay frozen during horizontal scroll.
             </p>
           </div>
-          <div className="audit-header-actions flex items-center gap-3">
+          <div className="audit-header-actions flex items-center gap-3 flex-wrap">
             <input
               type="text"
               className="field search text-sm"
@@ -543,6 +377,18 @@ export const AuditDashboard = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ maxWidth: '240px' }}
             />
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="px-3.5 py-2 text-xs font-bold rounded-xl border border-teal-300 dark:border-teal-700/80 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Export records table to CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export CSV
+            </button>
+            <span className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold">
+              {mainTable.processedData.length} record{mainTable.processedData.length === 1 ? '' : 's'}
+            </span>
             {mainPendingCount > 0 && (
               <button
                 type="button"
@@ -968,7 +814,16 @@ export const AuditDashboard = () => {
                       <td className="p-3 border-b text-right whitespace-nowrap">
                         {(() => {
                           const validation = checkRecordRequiredFields(record, rowEdits);
-                          if (validation.isUntouched) return null;
+                          if (validation.isUntouched) {
+                            if (isRecordCompleted(record)) {
+                              return (
+                                <span className="px-2 py-0.5 text-xs font-bold bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded border border-green-300 dark:border-green-700/60 shadow-xs" title="Audited record">
+                                  Audited
+                                </span>
+                              );
+                            }
+                            return null;
+                          }
                           return validation.isDraft ? (
                             <span className="px-2 py-0.5 text-xs font-bold bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300 rounded border border-teal-300 dark:border-teal-700/60 shadow-xs" title="Draft record ready for saving">
                               Draft
@@ -989,10 +844,10 @@ export const AuditDashboard = () => {
         </div>
 
         {/* Pagination */}
-        {filteredActiveRecords.length > 0 && (
+        {mainTable.processedData.length > 0 && (
           <div className="flex items-center justify-between gap-4 mt-4 flex-wrap">
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, filteredActiveRecords.length)} of {filteredActiveRecords.length} records
+              Showing {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, mainTable.processedData.length)} of {mainTable.processedData.length} records
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -1019,508 +874,6 @@ export const AuditDashboard = () => {
         )}
       </article>
 
-      {/* Secondary Finalized / Audited Personnel Records Table Panel */}
-      <article className="card card-glass p-6">
-        <div className="specular-sheen"></div>
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-800 dark:text-white">Finalized / Audited Personnel Records</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Historical logs of successfully completed personnel audits</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsFinalizedEditMode(prev => !prev)}
-              className={`px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer hover:-translate-y-0.5 active:translate-y-0 ${
-                isFinalizedEditMode
-                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                  : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200'
-              }`}
-              title={isFinalizedEditMode ? "Disable inline editing for finalized records" : "Enable inline editing for finalized records"}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L20.586 7.586a2 2 0 010 2.828L11.828 19H9v-2.828l8.586-8.586z" />
-              </svg>
-              {isFinalizedEditMode ? 'Disable Edit' : 'Enable Edit'}
-            </button>
-            {isFinalizedEditMode && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (finalizedPendingCount === 0) {
-                    alert('No unsaved changes in finalized personnel records.');
-                    return;
-                  }
-                  setIsFinalizedSaveModalOpen(true);
-                }}
-                disabled={finalizedPendingCount === 0 || saving}
-                className={`px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 ${
-                  finalizedPendingCount > 0 && !saving
-                    ? 'bg-teal-600 hover:bg-teal-700 text-white cursor-pointer hover:-translate-y-0.5 active:translate-y-0'
-                    : 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
-                }`}
-                title={finalizedPendingCount > 0 ? "Save pending changes in finalized records" : "No changes to save"}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-                {saving ? 'Saving...' : finalizedPendingCount > 0 ? `Save ${finalizedPendingCount} ${finalizedPendingCount === 1 ? 'Change' : 'Changes'}` : 'Save Changes'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleExportCompletedCSV}
-              className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
-              title="Export finalized records table to CSV"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export CSV
-            </button>
-            <span className="px-3 py-1 bg-green-100 border border-green-200 text-green-800 rounded-full text-xs font-semibold">
-              {finalizedTable.processedData.length} record{finalizedTable.processedData.length === 1 ? '' : 's'}
-            </span>
-          </div>
-        </div>
-        <div className="table-wrap">
-          <table className="audit-table">
-            <thead>
-              <tr>
-                <th className="sticky-1 cursor-pointer select-none" onClick={() => finalizedTable.handleSort('item_number')}>
-                  ITEM NUMBER {finalizedTable.renderSortIndicator('item_number')}
-                </th>
-                <th className="sticky-2 cursor-pointer select-none" onClick={() => finalizedTable.handleSort('position_title')}>
-                  POSITION TITLE {finalizedTable.renderSortIndicator('position_title')}
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => finalizedTable.handleSort('position_category')}>
-                  CATEGORY {finalizedTable.renderSortIndicator('position_category')}
-                </th>
-                <th className="text-center cursor-pointer select-none" onClick={() => finalizedTable.handleSort('item_status')}>
-                  ITEM STATUS {finalizedTable.renderSortIndicator('item_status')}
-                </th>
-                <th className="text-center cursor-pointer select-none" onClick={() => finalizedTable.handleSort('sg')}>
-                  SALARY GRADE {finalizedTable.renderSortIndicator('sg')}
-                </th>
-                <th className="text-center cursor-pointer select-none" onClick={() => finalizedTable.handleSort('year_created')}>
-                  YEAR CREATED {finalizedTable.renderSortIndicator('year_created')}
-                </th>
-                <th className="text-center cursor-pointer select-none" onClick={() => finalizedTable.handleSort('years_unfilled')}>
-                  YEARS UNFILLED {finalizedTable.renderSortIndicator('years_unfilled')}
-                </th>
-                <th className="text-center cursor-pointer select-none" onClick={() => finalizedTable.handleSort('vacancy_aging_status')}>
-                  AGING STATUS {finalizedTable.renderSortIndicator('vacancy_aging_status')}
-                </th>
-                <th className="text-center cursor-pointer select-none" onClick={() => finalizedTable.handleSort('position_status')}>
-                  POSITION STATUS {finalizedTable.renderSortIndicator('position_status')}
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => finalizedTable.handleSort('name_of_incumbent')}>
-                  NAME OF INCUMBENT {finalizedTable.renderSortIndicator('name_of_incumbent')}
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => finalizedTable.handleSort('first_day_of_service')}>
-                  FIRST DAY OF SERVICE {finalizedTable.renderSortIndicator('first_day_of_service')}
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => finalizedTable.handleSort('date_of_vacancy')}>
-                  DATE OF VACANCY {finalizedTable.renderSortIndicator('date_of_vacancy')}
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => finalizedTable.handleSort('reason_for_vacancy')}>
-                  REASON OF VACANCY {finalizedTable.renderSortIndicator('reason_for_vacancy')}
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => finalizedTable.handleSort('status_of_vacancy')}>
-                  STATUS OF VACANCY {finalizedTable.renderSortIndicator('status_of_vacancy')}
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => finalizedTable.handleSort('tentative_date_to_fill_up')}>
-                  TENTATIVE DATE OF FIRST DAY OF SERVICE {finalizedTable.renderSortIndicator('tentative_date_to_fill_up')}
-                </th>
-                <th className="text-center cursor-pointer select-none" onClick={() => finalizedTable.handleSort('other_remarks')}>
-                  REMARKS {finalizedTable.renderSortIndicator('other_remarks')}
-                </th>
-                <th className="text-center">
-                  ACTIONS
-                </th>
-              </tr>
-
-              {/* Per-Column Filter Input Row */}
-              <tr className="filter-row bg-slate-50/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700">
-                <th className="sticky-1 p-1">
-                  <input
-                    type="text"
-                    placeholder="Search Item #"
-                    value={finalizedTable.columnFilters.item_number || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('item_number', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="sticky-2 p-1">
-                  <input
-                    type="text"
-                    placeholder="Search Title"
-                    value={finalizedTable.columnFilters.position_title || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('position_title', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Filter Category"
-                    value={finalizedTable.columnFilters.position_category || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('position_category', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Filter Item Status"
-                    value={finalizedTable.columnFilters.item_status || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('item_status', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Salary Grade"
-                    value={finalizedTable.columnFilters.sg || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('sg', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Year"
-                    value={finalizedTable.columnFilters.year_created || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('year_created', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Years Unfilled"
-                    value={finalizedTable.columnFilters.years_unfilled || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('years_unfilled', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Filter Aging"
-                    value={finalizedTable.columnFilters.vacancy_aging_status || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('vacancy_aging_status', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Pos Status"
-                    value={finalizedTable.columnFilters.position_status || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('position_status', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Name of Incumbent"
-                    value={finalizedTable.columnFilters.name_of_incumbent || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('name_of_incumbent', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="First Day of Service"
-                    value={finalizedTable.columnFilters.first_day_of_service || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('first_day_of_service', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Date of Vacancy"
-                    value={finalizedTable.columnFilters.date_of_vacancy || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('date_of_vacancy', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Reason of Vacancy"
-                    value={finalizedTable.columnFilters.reason_for_vacancy || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('reason_for_vacancy', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Status of Vacancy"
-                    value={finalizedTable.columnFilters.status_of_vacancy || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('status_of_vacancy', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Tentative Date of First Day of Service"
-                    value={finalizedTable.columnFilters.tentative_date_to_fill_up || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('tentative_date_to_fill_up', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1">
-                  <input
-                    type="text"
-                    placeholder="Remarks"
-                    value={finalizedTable.columnFilters.other_remarks || ''}
-                    onChange={e => finalizedTable.handleColumnFilterChange('other_remarks', e.target.value)}
-                    className="w-full px-2 py-1 text-[11px] font-normal border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 text-center focus:outline-none focus:border-teal-500"
-                  />
-                </th>
-                <th className="p-1"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {finalizedTable.processedData.length === 0 ? (
-                <tr>
-                  <td colSpan={17} className="p-8 text-center text-gray-500 font-medium">
-                    No finalized audit records yet.
-                  </td>
-                </tr>
-              ) : (
-                finalizedTable.processedData.map(record => {
-                  const recId = getRecordKey(record);
-                  const rowEdits = finalizedStagedEdits[recId] || {};
-                  const isDirty = Object.keys(rowEdits).length > 0;
-
-                  const posStatus = resolveFinalizedValue(record, 'position_status', 'POSITION STATUS') || record.item_status || 'UNFILLED';
-                  const isFilled = posStatus === 'FILLED';
-
-                  const itemNum = record.item_number || record['ITEM NUMBER'] || 'N/A';
-                  const posTitle = record.position_title || record['POSITION TITLE'] || 'N/A';
-                  const posCategory = record.position_category || record['POSITION CATEGORY'] || 'N/A';
-                  const itemStatusDisplay = record.item_status || record.ITEM_STATUS || posStatus;
-                  const sg = record.sg || record.SG || 'N/A';
-                  const yearCreated = record.year_created || record['YEAR CREATED'] || 'N/A';
-                  const yearsUnfilled = record.years_unfilled || record['YEARS UNFILLED'] || 'N/A';
-                  const agingStatus = record.vacancy_aging_status || record['VACANCY AGING STATUS'] || 'N/A';
-
-                  const incumbent = isFilled ? resolveFinalizedValue(record, 'name_of_incumbent', 'NAME OF INCUMBENT') : '';
-                  const firstDay = isFilled ? resolveFinalizedValue(record, 'first_day_of_service', 'FIRST DAY OF SERVICE') : '';
-                  const dateVacancy = !isFilled ? resolveFinalizedValue(record, 'date_of_vacancy', 'DATE OF VACANCY') : '';
-                  const reasonVacancy = !isFilled ? resolveFinalizedValue(record, 'reason_for_vacancy', 'REASON FOR VACANCY') : '';
-                  const statusVacancy = !isFilled ? resolveFinalizedValue(record, 'status_of_vacancy', 'STATUS OF VACANCY') : '';
-                  const tentativeFill = !isFilled ? resolveFinalizedValue(record, 'tentative_date_to_fill_up', 'TENTATIVE DATE TO FILL-UP') : '';
-                  const remarksRaw = resolveFinalizedValue(record, 'other_remarks', 'OTHER REMARKS');
-                  const remarksParsed = parseRemarksValue(remarksRaw);
-
-                  if (!isFinalizedEditMode) {
-                    return (
-                      <tr key={recId} className={`hover:bg-green-50/40 transition ${isDirty ? 'bg-amber-50/40 cell-dirty' : ''}`}>
-                        <td className="sticky-1 border-b font-medium text-gray-900 dark:text-white">{itemNum}</td>
-                        <td className="sticky-2 border-b text-gray-700 dark:text-gray-200">{posTitle}</td>
-                        <td className="p-3 border-b table-readonly-cell">{posCategory}</td>
-                        <td className="p-3 border-b table-readonly-cell text-center">{itemStatusDisplay}</td>
-                        <td className="p-3 border-b table-readonly-cell text-center">{sg}</td>
-                        <td className="p-3 border-b table-readonly-cell text-center">{yearCreated}</td>
-                        <td className="p-3 border-b table-readonly-cell text-center">{yearsUnfilled}</td>
-                        <td className="p-3 border-b table-readonly-cell text-center">
-                          <span className={`badge-vacancy-status ${getAgingBadgeClass(agingStatus)}`}>
-                            {agingStatus}
-                          </span>
-                        </td>
-                        <td className="p-3 border-b table-readonly-cell text-center">{posStatus}</td>
-                        <td className="p-3 border-b table-readonly-cell">{isFilled ? (incumbent || 'N/A') : 'N/A'}</td>
-                        <td className="p-3 border-b table-readonly-cell">{isFilled ? (firstDay || 'N/A') : 'N/A'}</td>
-                        <td className="p-3 border-b table-readonly-cell">{!isFilled ? (dateVacancy || 'N/A') : 'N/A'}</td>
-                        <td className="p-3 border-b table-readonly-cell">{!isFilled ? (reasonVacancy || 'N/A') : 'N/A'}</td>
-                        <td className="p-3 border-b table-readonly-cell">{!isFilled ? (statusVacancy || 'N/A') : 'N/A'}</td>
-                        <td className="p-3 border-b table-readonly-cell">{!isFilled ? (tentativeFill || 'N/A') : 'N/A'}</td>
-                        <td className="p-3 border-b table-readonly-cell text-center">{remarksParsed.text || 'N/A'}</td>
-                        <td className="p-2 border-b text-center">
-                          <button
-                            type="button"
-                            onClick={() => setUnfinalizeTargetRecord(record)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold rounded-lg border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/60 transition cursor-pointer"
-                            title="Clear finalized audit data and move this record back to the Main Panel"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  return (
-                    <tr
-                      key={recId}
-                      className={`hover:bg-blue-50/50 transition cursor-pointer ${isDirty ? 'bg-amber-50/40 cell-dirty' : ''}`}
-                      onClick={(e) => {
-                        if (!e.target.closest('input, select, button')) {
-                          setEditingModalRecord(record);
-                        }
-                      }}
-                    >
-                      <td
-                        className="sticky-1 border-b font-medium text-gray-900 dark:text-white hover:text-teal-600 hover:underline cursor-pointer"
-                        onClick={() => setEditingModalRecord(record)}
-                        title="Click to open modal editor"
-                      >
-                        {itemNum}
-                      </td>
-                      <td
-                        className="sticky-2 border-b text-gray-700 dark:text-gray-200 hover:text-teal-600 hover:underline cursor-pointer font-semibold"
-                        onClick={() => setEditingModalRecord(record)}
-                        title="Click to open modal editor"
-                      >
-                        {posTitle}
-                      </td>
-                      <td className="p-3 border-b table-readonly-cell">{posCategory}</td>
-                      <td className="p-3 border-b table-readonly-cell text-center">{itemStatusDisplay}</td>
-                      <td className="p-3 border-b table-readonly-cell text-center">{sg}</td>
-                      <td className="p-3 border-b table-readonly-cell text-center">{yearCreated}</td>
-                      <td className="p-3 border-b table-readonly-cell text-center">{yearsUnfilled}</td>
-                      <td className="p-3 border-b table-readonly-cell text-center">
-                        <span className={`badge-vacancy-status ${getAgingBadgeClass(agingStatus)}`}>{agingStatus}</span>
-                      </td>
-                      <td className="p-2 border-b text-center">
-                        <select
-                          className={`row-position-status font-bold rounded px-2 py-1 text-xs border shadow-sm cursor-pointer text-center ${
-                            isFilled
-                              ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-950/70 dark:text-green-300 dark:border-green-700'
-                              : 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/70 dark:text-red-300 dark:border-red-700'
-                          }`}
-                          value={posStatus}
-                          onChange={(e) => handleFinalizedStatusChange(recId, e.target.value)}
-                        >
-                          <option
-                            value="UNFILLED"
-                            className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-bold"
-                            style={{ backgroundColor: '#fee2e2', color: '#991b1b' }}
-                          >
-                            UNFILLED
-                          </option>
-                          <option
-                            value="FILLED"
-                            className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 font-bold"
-                            style={{ backgroundColor: '#dcfce7', color: '#166534' }}
-                          >
-                            FILLED
-                          </option>
-                        </select>
-                      </td>
-                      <td className="p-2 border-b">
-                        {!isFilled ? (
-                          <input type="text" className="form-input form-input-disabled-na border rounded px-2 py-1 text-xs w-full" disabled value="N/A" />
-                        ) : (
-                          <input
-                            type="text"
-                            className="form-input uppercase border rounded px-2 py-1 text-xs w-full bg-white text-slate-800 border-slate-300"
-                            value={incumbent}
-                            onChange={(e) => stageFinalizedEdit(recId, 'name_of_incumbent', e.target.value)}
-                            placeholder="INCUMBENT NAME"
-                          />
-                        )}
-                      </td>
-                      <td className="p-2 border-b">
-                        <FlatpickrInput
-                          disabled={!isFilled}
-                          value={firstDay}
-                          onChange={(val) => stageFinalizedEdit(recId, 'first_day_of_service', val)}
-                        />
-                      </td>
-                      <td className="p-2 border-b">
-                        <FlatpickrInput
-                          disabled={isFilled}
-                          value={dateVacancy}
-                          onChange={(val) => stageFinalizedEdit(recId, 'date_of_vacancy', val)}
-                        />
-                      </td>
-                      <td className="p-2 border-b">
-                        {isFilled ? (
-                          <input type="text" className="form-input form-input-disabled-na border rounded px-2 py-1 text-xs w-full" disabled value="N/A" />
-                        ) : (
-                          <select
-                            className="form-select border rounded px-2 py-1 text-xs w-full bg-white text-slate-800 border-slate-300"
-                            value={reasonVacancy}
-                            onChange={(e) => stageFinalizedEdit(recId, 'reason_for_vacancy', e.target.value)}
-                          >
-                            <option value="">Select Reason</option>
-                            {REASONS_FOR_VACANCY.map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                        )}
-                      </td>
-                      <td className="p-2 border-b">
-                        {isFilled ? (
-                          <input type="text" className="form-input form-input-disabled-na border rounded px-2 py-1 text-xs w-full" disabled value="N/A" />
-                        ) : (
-                          <select
-                            className="form-select border rounded px-2 py-1 text-xs w-full bg-white text-slate-800 border-slate-300"
-                            value={statusVacancy}
-                            onChange={(e) => {
-                              const newStatus = e.target.value;
-                              stageFinalizedEdit(recId, 'status_of_vacancy', newStatus);
-                              if (NA_TENTATIVE_DATE_STATUSES.includes(newStatus)) {
-                                stageFinalizedEdit(recId, 'tentative_date_to_fill_up', 'N/A');
-                              } else if (tentativeFill === 'N/A') {
-                                stageFinalizedEdit(recId, 'tentative_date_to_fill_up', '');
-                              }
-                            }}
-                          >
-                            <option value="">Select Status</option>
-                            {STATUSES_OF_VACANCY.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        )}
-                      </td>
-                      <td className="p-2 border-b text-center">
-                        <button
-                          type="button"
-                          className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-bold text-xs ${remarksParsed.text ? 'bg-teal-100 text-teal-700 border border-teal-300' : 'bg-slate-100 text-slate-500 border border-slate-300'} hover:bg-teal-200 transition cursor-pointer`}
-                          onClick={() => setRemarksModalRecordId(recId)}
-                          title={remarksParsed.text || 'Add remarks'}
-                        >
-                          {remarksParsed.text ? '✎' : '+'}
-                        </button>
-                      </td>
-                      <td className="p-2 border-b">
-                        <FlatpickrInput
-                          disabled={isFilled || NA_TENTATIVE_DATE_STATUSES.includes(statusVacancy)}
-                          value={tentativeFill}
-                          onChange={(val) => stageFinalizedEdit(recId, 'tentative_date_to_fill_up', val)}
-                          minDate="today"
-                          allowInput={false}
-                        />
-                      </td>
-                      <td className="p-2 border-b text-center">
-                        <button
-                          type="button"
-                          onClick={() => setUnfinalizeTargetRecord(record)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold rounded-lg border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/60 transition cursor-pointer"
-                          title="Clear finalized audit data and move this record back to the Main Panel"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </article>
-
       {/* Row Remarks Edit Modal */}
       <RemarksModal
         isOpen={!!remarksModalRecordId}
@@ -1529,35 +882,23 @@ export const AuditDashboard = () => {
         currentRemarksValue={(() => {
           if (!remarksModalRecordId) return '';
           const rec = records.find(r => String(getRecordKey(r)) === String(remarksModalRecordId));
-          const isComp = rec ? completedRecords.some(c => String(getRecordKey(c)) === String(getRecordKey(rec))) : false;
-          return isComp ? resolveFinalizedValue(rec, 'other_remarks', 'OTHER REMARKS') : resolveMainValue(rec, 'other_remarks', 'OTHER REMARKS');
+          return resolveMainValue(rec, 'other_remarks', 'OTHER REMARKS');
         })()}
         onSave={(id, newPayload) => {
           const recKey = id || remarksModalRecordId;
-          const isComp = completedRecords.some(c => String(getRecordKey(c)) === String(recKey));
-          if (isComp) {
-            stageFinalizedEdit(recKey, 'other_remarks', newPayload);
-          } else {
-            stageMainEdit(recKey, 'other_remarks', newPayload);
-          }
+          stageMainEdit(recKey, 'other_remarks', newPayload);
         }}
       />
 
       {/* Row Click Pre-filled Edit Modal Form */}
-      {(() => {
-        const modalRecId = getRecordKey(editingModalRecord);
-        const isCompletedRowModal = editingModalRecord ? completedRecords.some(r => String(getRecordKey(r)) === String(modalRecId)) : false;
-        return (
-          <RowEditModal
-            isOpen={!!editingModalRecord}
-            onClose={() => setEditingModalRecord(null)}
-            record={editingModalRecord}
-            stagedEdits={isCompletedRowModal ? finalizedStagedEdits : mainStagedEdits}
-            onFieldChange={(id, f, v) => isCompletedRowModal ? stageFinalizedEdit(id || modalRecId, f, v) : stageMainEdit(id || modalRecId, f, v)}
-            onStatusChange={(id, s) => isCompletedRowModal ? handleFinalizedStatusChange(id || modalRecId, s) : handleMainStatusChange(id || modalRecId, s)}
-          />
-        );
-      })()}
+      <RowEditModal
+        isOpen={!!editingModalRecord}
+        onClose={() => setEditingModalRecord(null)}
+        record={editingModalRecord}
+        stagedEdits={mainStagedEdits}
+        onFieldChange={(id, f, v) => stageMainEdit(id || getRecordKey(editingModalRecord), f, v)}
+        onStatusChange={(id, s) => handleMainStatusChange(id || getRecordKey(editingModalRecord), s)}
+      />
 
       {/* Undo Pending Changes Modal */}
       <UndoChangesModal
@@ -1571,25 +912,6 @@ export const AuditDashboard = () => {
           delete copy[id];
           return copy;
         })}
-      />
-
-      {/* Finalized Audit Records Save Confirmation Modal */}
-      <SaveFinalizedEditsModal
-        isOpen={isFinalizedSaveModalOpen}
-        onClose={() => setIsFinalizedSaveModalOpen(false)}
-        onConfirm={handleConfirmFinalizedSave}
-        stagedEdits={finalizedStagedEdits}
-        records={records}
-        saving={saving}
-      />
-
-      {/* Un-finalize (Clear Audit Data) Confirmation Modal */}
-      <UnfinalizeConfirmModal
-        isOpen={!!unfinalizeTargetRecord}
-        onClose={() => setUnfinalizeTargetRecord(null)}
-        onConfirm={handleConfirmUnfinalize}
-        record={unfinalizeTargetRecord}
-        processing={isUnfinalizing}
       />
     </div>
   );
