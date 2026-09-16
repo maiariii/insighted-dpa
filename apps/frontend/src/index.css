@@ -581,7 +581,7 @@ button.personnel-tab.kpi span.completion-sticker {
 
 .kpi-progress-track {
   width: 100%;
-  height: 6px;
+  height: 18px;
   background-color: #e2e8f0;
   border-radius: 999px;
   overflow: hidden;
@@ -593,6 +593,42 @@ button.personnel-tab.kpi span.completion-sticker {
   background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
   border-radius: 999px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.kpi-progress-percent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.kpi-progress-percent.on-fill {
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.kpi-progress-percent.on-track {
+  color: #334155;
+}
+
+button.personnel-tab.kpi.active .kpi-progress-percent.on-track {
+  color: #1e40af;
+}
+
+body.dark .kpi-progress-percent.on-track {
+  color: #f1f5f9;
+}
+
+body.dark button.personnel-tab.kpi.active .kpi-progress-percent.on-track {
+  color: #93c5fd;
 }
 
 button.personnel-tab.kpi:hover {

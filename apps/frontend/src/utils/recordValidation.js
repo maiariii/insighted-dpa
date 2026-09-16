@@ -1,4 +1,4 @@
-import { NA_TENTATIVE_DATE_STATUSES, OPTIONAL_TENTATIVE_DATE_STATUSES } from './config';
+import { NA_TENTATIVE_DATE_STATUSES, OPTIONAL_TENTATIVE_DATE_STATUSES } from './config.js';
 
 /**
  * Checks if a personnel audit record (with any staged edits applied) has all
@@ -59,3 +59,34 @@ export function checkRecordRequiredFields(record = {}, stagedEditsForRow = {}) {
     isUntouched
   };
 }
+
+export const EDITABLE_FIELDS = [
+  { field: 'position_status', alias: 'POSITION STATUS' },
+  { field: 'name_of_incumbent', alias: 'NAME OF INCUMBENT' },
+  { field: 'first_day_of_service', alias: 'FIRST DAY OF SERVICE' },
+  { field: 'date_of_vacancy', alias: 'DATE OF VACANCY' },
+  { field: 'reason_for_vacancy', alias: 'REASON FOR VACANCY' },
+  { field: 'status_of_vacancy', alias: 'STATUS OF VACANCY' },
+  { field: 'other_remarks', alias: 'OTHER REMARKS' },
+  { field: 'tentative_date_to_fill_up', alias: 'TENTATIVE DATE TO FILL-UP' }
+];
+
+/**
+ * Determines whether a record has been modified by the user by checking
+ * if staged edits exist and actually differ from the original fetched record.
+ */
+export function isRowDirty(record = {}, stagedEditsForRow = {}) {
+  if (!stagedEditsForRow || Object.keys(stagedEditsForRow).length === 0) {
+    return false;
+  }
+
+  return EDITABLE_FIELDS.some(({ field, alias }) => {
+    if (stagedEditsForRow[field] === undefined) return false;
+    const currentVal = stagedEditsForRow[field] ?? '';
+    const origVal = (record[field] !== undefined && record[field] !== null)
+      ? record[field]
+      : ((alias && record[alias] !== undefined && record[alias] !== null) ? record[alias] : '');
+    return String(currentVal).trim() !== String(origVal).trim();
+  });
+}
+

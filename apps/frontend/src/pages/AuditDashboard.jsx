@@ -9,7 +9,7 @@ import { UndoChangesModal } from '../components/UndoChangesModal';
 import { FlatpickrInput } from '../components/FlatpickrInput';
 import { REASONS_FOR_VACANCY, STATUSES_OF_VACANCY, NA_TENTATIVE_DATE_STATUSES } from '../utils/config';
 import { useTableSortAndFilter } from '../hooks/useTableSortAndFilter';
-import { checkRecordRequiredFields } from '../utils/recordValidation';
+import { checkRecordRequiredFields, isRowDirty } from '../utils/recordValidation';
 
 export const AuditDashboard = () => {
   const {
@@ -202,21 +202,17 @@ export const AuditDashboard = () => {
   }, [records, searchQuery, selectedRegionFilter, selectedStatusFilter, activeCategoryFilter]);
 
   // Submission Status helper for sorting and filtering.
-  // Evaluated from the merged (persisted + staged) field state rather than
-  // staged-edit dirtiness alone, so a saved-but-not-yet-audited row (e.g. an
-  // optional tentative date left blank) still reports "Draft" instead of
-  // going blank the moment its staged edits are cleared after a save.
+  // Empty/blank by default; only set to "Draft" or "Incomplete" once modified by user.
   const getSubmissionStatus = useCallback((record) => {
     if (!record) return '';
     const recId = getRecordKey(record);
     const rowEdits = mainStagedEdits[recId] || {};
-    const validation = checkRecordRequiredFields(record, rowEdits);
-    if (validation.isUntouched) {
-      if (isRecordCompleted(record)) return 'Audited';
+    if (!isRowDirty(record, rowEdits)) {
       return '';
     }
+    const validation = checkRecordRequiredFields(record, rowEdits);
     return validation.isDraft ? 'Draft' : 'Incomplete';
-  }, [mainStagedEdits, isRecordCompleted]);
+  }, [mainStagedEdits]);
 
   // Field extractors for Main Audit Table sorting & column filtering
   const mainExtractors = useMemo(() => ({
@@ -412,7 +408,7 @@ export const AuditDashboard = () => {
         </div>
 
         {/* Personnel Audit KPI Category Tabs */}
-        <PersonnelAuditKPIs />
+        <PersonnelAuditKPIs mainStagedEdits={mainStagedEdits} />
 
         {/* Audit Table Wrap */}
         <div className="table-wrap mt-4">
@@ -813,26 +809,23 @@ export const AuditDashboard = () => {
                       </td>
                       <td className="p-3 border-b text-right whitespace-nowrap">
                         {(() => {
-                          const validation = checkRecordRequiredFields(record, rowEdits);
-                          if (validation.isUntouched) {
-                            if (isRecordCompleted(record)) {
-                              return (
-                                <span className="px-2 py-0.5 text-xs font-bold bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded border border-green-300 dark:border-green-700/60 shadow-xs" title="Audited record">
-                                  Audited
-                                </span>
-                              );
-                            }
-                            return null;
+                          const status = getSubmissionStatus(record);
+                          if (status === 'Draft') {
+                            return (
+                              <span className="px-2 py-0.5 text-xs font-bold bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300 rounded border border-teal-300 dark:border-teal-700/60 shadow-xs" title="Draft record ready for saving">
+                                Draft
+                              </span>
+                            );
                           }
-                          return validation.isDraft ? (
-                            <span className="px-2 py-0.5 text-xs font-bold bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300 rounded border border-teal-300 dark:border-teal-700/60 shadow-xs" title="Draft record ready for saving">
-                              Draft
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 rounded border border-amber-200 dark:border-amber-700/60" title={`Missing required fields: ${validation.missingFields.join(', ')}`}>
-                              Incomplete
-                            </span>
-                          );
+                          if (status === 'Incomplete') {
+                            const validation = checkRecordRequiredFields(record, rowEdits);
+                            return (
+                              <span className="px-2 py-0.5 text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 rounded border border-amber-200 dark:border-amber-700/60" title={`Missing required fields: ${validation.missingFields.join(', ')}`}>
+                                Incomplete
+                              </span>
+                            );
+                          }
+                          return null;
                         })()}
                       </td>
                     </tr>

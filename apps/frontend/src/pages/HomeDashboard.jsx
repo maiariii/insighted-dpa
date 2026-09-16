@@ -80,26 +80,27 @@ export const HomeDashboard = () => {
   const remaining = kpis.remainingItems ?? kpiObj.remainingItems ?? Math.max(0, total - audited);
   const percent = kpis.completionPercentage ?? kpiObj.completionPercentage ?? (total > 0 ? parseFloat(((audited / total) * 100).toFixed(1)) : 0);
 
-  // Compute Filling-Up Rate using exact item population: Total Filled + Total Unfilled
-  // Note: NULL or unknown position_status are NOT automatically classified as UNFILLED
+  // Compute Filling-Up Rate against audited unfilled plantilla items: Total Filled vs Total Audited Unfilled
   const list = Array.isArray(records) ? records : [];
   let filledCount = 0;
-  let unfilledCount = 0;
+  let auditedUnfilledCount = 0;
 
   list.forEach(r => {
     const posStatus = (r.position_status || r['POSITION STATUS'] || '').toString().trim().toUpperCase();
     if (posStatus === 'FILLED') {
       filledCount++;
     } else if (posStatus === 'UNFILLED') {
-      unfilledCount++;
+      const isAudited = r.is_audited === true || r.is_audited === 1 || String(r.item_status || r.ITEM_STATUS).toLowerCase() === 'audited' || (isRecordCompleted && isRecordCompleted(r));
+      if (isAudited) {
+        auditedUnfilledCount++;
+      }
     }
   });
 
   const totalFilled = filledCount;
-  const totalUnfilled = unfilledCount;
-  const totalPopulation = totalFilled + totalUnfilled;
-  const fillingUpRate = totalPopulation > 0
-    ? parseFloat(((totalFilled / totalPopulation) * 100).toFixed(1))
+  const totalAuditedUnfilled = auditedUnfilledCount;
+  const fillingUpRate = totalAuditedUnfilled > 0
+    ? parseFloat(((totalFilled / totalAuditedUnfilled) * 100).toFixed(1))
     : 0;
 
   // Vacancy Aging distribution chart data
@@ -236,7 +237,7 @@ export const HomeDashboard = () => {
             Filling-Up Rate: <strong className="text-slate-900 dark:text-white font-extrabold text-sm ml-1">{fillingUpRate}%</strong>
           </span>
           <span className="text-xs text-slate-400 font-medium">
-            ({Number(totalFilled).toLocaleString()} filled of {Number(totalPopulation).toLocaleString()} total plantilla items)
+            ({Number(totalFilled).toLocaleString()} filled of {Number(totalAuditedUnfilled).toLocaleString()} total audited unfilled plantilla items)
           </span>
         </div>
         <div className="w-full sm:w-64 bg-slate-100 dark:bg-slate-700/60 rounded-full h-2 overflow-hidden flex-shrink-0">

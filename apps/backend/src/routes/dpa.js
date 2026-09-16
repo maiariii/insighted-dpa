@@ -76,6 +76,21 @@ export const GET_REASONS_UNFILLED_SQL = `
   ORDER BY count DESC;
 `;
 
+export const GET_CATEGORY_METRICS_SQL = `
+  SELECT
+    position_category,
+    COUNT(*)::int AS total,
+    COALESCE(SUM(CASE WHEN position_status = 'FILLED' THEN 1 ELSE 0 END), 0)::int AS filled,
+    COALESCE(SUM(CASE WHEN position_status = 'UNFILLED' THEN 1 ELSE 0 END), 0)::int AS unfilled,
+    COALESCE(SUM(CASE WHEN position_status = 'UNFILLED' AND (is_audited = true OR item_status = 'Audited') THEN 1 ELSE 0 END), 0)::int AS audited_unfilled
+  FROM personnel_audits
+  WHERE ($1::varchar IS NULL OR region_id = $1 OR region_id ILIKE '%' || $1 || '%')
+    AND ($2::varchar IS NULL OR division_id::text = $2::text OR division_id = $2
+         OR REPLACE(division_id, 'Division of ', '') = REPLACE($2, 'Division of ', ''))
+  GROUP BY position_category
+  ORDER BY position_category;
+`;
+
 export const GET_KPI_METRICS_SQLITE = `
   SELECT
     COUNT(*) AS total_monitored,
@@ -215,10 +230,11 @@ router.get(["/kpis", "/kpi-metrics", "/personnel-audit/kpis", "/api/personnel-au
     const params = [filterRegion, filterDivision];
 
     if (db && typeof db.query === "function") {
-      const [kpiRes, agingRes, reasonsRes] = await Promise.all([
+      const [kpiRes, agingRes, reasonsRes, categoryRes] = await Promise.all([
         db.query(GET_KPI_METRICS_SQL,          params),
         db.query(GET_AGING_DISTRIBUTION_SQL,   params),
-        db.query(GET_REASONS_UNFILLED_SQL,     params)
+        db.query(GET_REASONS_UNFILLED_SQL,     params),
+        db.query(GET_CATEGORY_METRICS_SQL,     params)
       ]);
 
       const kpiRow = kpiRes.rows[0] || {};
@@ -228,6 +244,23 @@ router.get(["/kpis", "/kpi-metrics", "/personnel-audit/kpis", "/api/personnel-au
 
       const completionPercentage = total > 0 ? parseFloat(((audited / total) * 100).toFixed(1)) : 0;
 
+      const categoryFillingUpRates = (categoryRes.rows || []).map(row => {
+        const catTotal = parseInt(row.total || 0, 10);
+        const catFilled = parseInt(row.filled || 0, 10);
+        const catUnfilled = parseInt(row.unfilled || 0, 10);
+        const catAuditedUnfilled = parseInt(row.audited_unfilled || 0, 10);
+        const catRate = catAuditedUnfilled > 0 ? parseFloat(((catFilled / catAuditedUnfilled) * 100).toFixed(1)) : 0;
+        return {
+          category: row.position_category,
+          total: catTotal,
+          filled: catFilled,
+          unfilled: catUnfilled,
+          auditedUnfilled: catAuditedUnfilled,
+          fillingUpRate: catRate,
+          label: `${catFilled.toLocaleString()} filled of ${catAuditedUnfilled.toLocaleString()} total audited unfilled plantilla items`
+        };
+      });
+
       return res.status(200).json({
         status: "success",
         success: true,
@@ -235,6 +268,7 @@ router.get(["/kpis", "/kpi-metrics", "/personnel-audit/kpis", "/api/personnel-au
         auditedItems:         audited,
         remainingItems:       remaining,
         completionPercentage,
+        categoryFillingUpRates,
         kpis: {
           totalUnfilled:        total,
           auditedItems:         audited,
@@ -242,7 +276,8 @@ router.get(["/kpis", "/kpi-metrics", "/personnel-audit/kpis", "/api/personnel-au
           completionPercentage,
           totalAudited:         total,
           completedAudited:     audited,
-          accomplishmentRate:   completionPercentage
+          accomplishmentRate:   completionPercentage,
+          categoryFillingUpRates
         },
         vacancyAgingDistribution: agingRes.rows,
         reasonsUnfilled:          reasonsRes.rows,
@@ -255,7 +290,8 @@ router.get(["/kpis", "/kpi-metrics", "/personnel-audit/kpis", "/api/personnel-au
           completionPercentage,
           totalAudited:         total,
           completedAudited:     audited,
-          accomplishmentRate:   completionPercentage
+          accomplishmentRate:   completionPercentage,
+          categoryFillingUpRates
         }
       });
 
@@ -267,10 +303,11 @@ router.get(["/kpis", "/kpi-metrics", "/personnel-audit/kpis", "/api/personnel-au
         auditedItems: 0,
         remainingItems: 0,
         completionPercentage: 0,
-        kpis: { totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0 },
+        categoryFillingUpRates: [],
+        kpis: { totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0, categoryFillingUpRates: [] },
         vacancyAgingDistribution: [],
         reasonsUnfilled: [],
-        data: { region: filterRegion, office: filterDivision, totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0 }
+        data: { region: filterRegion, office: filterDivision, totalUnfilled: 0, auditedItems: 0, remainingItems: 0, completionPercentage: 0, categoryFillingUpRates: [] }
       });
     }
 

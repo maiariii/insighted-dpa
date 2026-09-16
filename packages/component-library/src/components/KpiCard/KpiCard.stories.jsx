@@ -18,9 +18,9 @@ export default {
 export const WithProgressBar = {
   args: {
     label: 'Teaching Personnel',
-    value: 312,
+    value: 500,
     progressPercent: 62.4,
-    progressLabel: '62.4% accomplishment rate',
+    progressLabel: '312 filled of 500 total audited unfilled plantilla items',
     isActive: false,
   },
 };
@@ -42,9 +42,9 @@ export const WithoutProgress = {
 export const Grid = () => {
   const [active, setActive] = useState('Teaching');
   const cards = [
-    { label: 'Teaching Personnel',         value: 312, progressPercent: 62.4, progressLabel: '62.4% accomplishment rate' },
-    { label: 'Non-Teaching Personnel',     value: 89,  progressPercent: 41.6, progressLabel: '41.6% accomplishment rate' },
-    { label: 'Teaching-Related Personnel', value: 57,  progressPercent: 78.9, progressLabel: '78.9% accomplishment rate' },
+    { label: 'Teaching Personnel',         value: 500, progressPercent: 62.4, progressLabel: '312 filled of 500 total audited unfilled plantilla items' },
+    { label: 'Non-Teaching Personnel',     value: 214, progressPercent: 41.6, progressLabel: '89 filled of 214 total audited unfilled plantilla items' },
+    { label: 'Teaching-Related Personnel', value: 72,  progressPercent: 78.9, progressLabel: '57 filled of 72 total audited unfilled plantilla items' },
   ].map(c => ({
     ...c,
     isActive: active === c.label,

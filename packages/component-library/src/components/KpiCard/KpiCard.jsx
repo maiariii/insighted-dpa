@@ -12,7 +12,7 @@ import styles from './KpiCard.module.css';
  * @param {string}   props.label           - Category label (e.g. "Teaching Personnel")
  * @param {number}   props.value           - The large count to display
  * @param {number}   [props.progressPercent] - 0–100 completion percentage; omit to hide progress bar
- * @param {string}   [props.progressLabel] - Text shown below the bar (e.g. "62.4% accomplishment rate")
+ * @param {string}   [props.progressLabel] - Text shown below the bar (e.g. "200 filled of 583 total audited unfilled plantilla items")
  * @param {boolean}  [props.isActive]      - Highlights the card as the active filter
  * @param {Function} [props.onClick]       - Called when the card is clicked
  */
@@ -26,6 +26,7 @@ export const KpiCard = ({
 }) => {
   const showProgress = progressPercent !== undefined && progressPercent !== null;
   const safePct = Math.min(100, Math.max(0, progressPercent ?? 0));
+  const isHighFill = safePct >= 45;
 
   return (
     <button
@@ -46,6 +47,9 @@ export const KpiCard = ({
               className={styles.progressFill}
               style={{ width: `${safePct}%` }}
             />
+            <span className={`${styles.progressPercent} ${isHighFill ? styles.onFill : styles.onTrack}`}>
+              {safePct.toFixed(1)}%
+            </span>
           </div>
           {progressLabel && (
             <span className={styles.completionSticker}>{progressLabel}</span>
